@@ -1,0 +1,9 @@
+recipes:
+  - id: esa_cci.water_vapour
+    description: Prepare ESA CCI water vapour (TCWV) datasets
+    match:
+      path_patterns:
+        - "*ESACCI-WATERVAPOUR-*"
+    steps:
+      - id: esa_cci.add_tcwv_standard_name
+      - id: woodpecker.ensure_latitude_is_increasing

@@ -1,0 +1,75 @@
+[build-system]
+requires = ["setuptools>=77", "setuptools-scm>=8.1"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "woodpecker-esa-cci-plugin"
+dynamic = ["version"]
+description = "Woodpecker plugin providing ESA CCI dataset fixes and recipes"
+readme = "README.md"
+license = "Apache-2.0"
+license-files = ["LICENSE"]
+requires-python = ">=3.11"
+dependencies = [
+  "roocs-woodpecker>=0.7,<0.8",
+  "xarray>=2024.1.0",
+]
+
+[project.entry-points."woodpecker.plugins"]
+esa_cci = "woodpecker_esa_cci_plugin"
+
+[dependency-groups]
+dev = [
+  "mypy",
+  "pre-commit",
+  "pytest>=8",
+  "ruff",
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+woodpecker_esa_cci_plugin = ["py.typed", "recipes/*.yaml"]
+
+[tool.setuptools_scm]
+version_scheme = "calver-by-date"
+fallback_version = "0.0.0"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra --strict-markers"
+
+[tool.ruff]
+line-length = 79
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["ALL"]
+ignore = [
+  "COM812", # conflicts with ruff format
+  "CPY001", # licensing is covered by the LICENSE file
+  "ISC001", # conflicts with ruff format
+]
+
+[tool.ruff.lint.pydocstyle]
+convention = "numpy"
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = [
+  "D",       # no docstrings required in tests
+  "INP001",  # tests are not a package
+  "PLR2004", # magic values are fine in assertions
+  "S101",    # pytest uses assert
+]
+
+[tool.mypy]
+strict = true
+files = ["src", "tests"]
+# FixFunction resolves to Any because woodpecker has no py.typed marker yet.
+disallow_subclassing_any = false
+
+[[tool.mypy.overrides]]
+# Remove once woodpecker ships a py.typed marker.
+module = ["woodpecker", "woodpecker.*"]
+ignore_missing_imports = true
