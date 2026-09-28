@@ -20,22 +20,43 @@ This plugin registers:
 - Recipes in `src/woodpecker_esa_cci_plugin/recipes/*.yaml` are discovered
   automatically.
 
-## Development
+## Loading data with xcube
 
-Requires [uv](https://docs.astral.sh/uv/).
+The optional `xcube` extra installs [xcube](https://github.com/xcube-dev/xcube)
+and its [ESA CCI plugin](https://github.com/esa-cci/xcube-cci) for loading
+data from the ESA CCI Open Data Portal:
 
 ```bash
-uv sync                       # create .venv with runtime and dev dependencies
-uv run pre-commit install     # run ruff, mypy and basic checks on commit
-uv run pytest                 # run the tests
-uv run pre-commit run --all-files
+pip install "woodpecker-esa-cci-plugin[xcube]"
 ```
+
+xcube depends on GDAL, which PyPI only ships as source code, so this needs
+GDAL installed on your system (e.g. `libgdal-dev` on Debian/Ubuntu). The
+`xcube` pixi environment below installs everything from conda-forge instead,
+which avoids this.
+
+## Development
+
+Requires [pixi](https://pixi.sh). Dependencies come from conda-forge and are
+pinned in `pixi.lock`.
+
+```bash
+pixi install                  # create the default environment in .pixi/
+pixi run pre-commit install   # run ruff, mypy and basic checks on commit
+pixi run test                 # run the tests
+pixi run lint                 # run all pre-commit checks
+```
+
+Other environments, selected with `-e`:
+
+- `py311`, `py314`: lowest and most recent supported Python version.
+- `xcube`: includes xcube and xcube-cci, e.g. `pixi run -e xcube test`.
 
 Check that woodpecker picks up the plugin:
 
 ```bash
-uv run woodpecker list-fixes --dataset ESA-CCI
-uv run woodpecker list-recipes
+pixi run woodpecker list-fixes --dataset ESA-CCI
+pixi run woodpecker list-recipes
 ```
 
 Versions come from git tags via setuptools-scm, using the `calver-by-date`

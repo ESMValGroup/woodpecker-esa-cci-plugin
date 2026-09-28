@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "woodpecker-esa-cci-plugin"
 dynamic = ["version"]
-description = "Woodpecker plugin providing ESA CCI dataset fixes and recipes"
+description = "Woodpecker plugin for formatting ESA-CCI data according to CMIP7 standards"
 readme = "README.md"
 license = "Apache-2.0"
 license-files = ["LICENSE"]
@@ -18,13 +18,45 @@ dependencies = [
 [project.entry-points."woodpecker.plugins"]
 esa_cci = "woodpecker_esa_cci_plugin"
 
-[dependency-groups]
-dev = [
-  "mypy",
-  "pre-commit",
-  "pytest>=8",
-  "ruff",
-]
+[tool.pixi.workspace]
+channels = ["conda-forge"]
+platforms = ["linux-64", "osx-arm64", "win-64"]
+
+[tool.pixi.dependencies]
+python = ">=3.11"
+roocs-woodpecker = ">=0.7,<0.8"
+xarray = ">=2024.1.0"
+
+[tool.pixi.pypi-dependencies]
+woodpecker-esa-cci-plugin = { path = ".", editable = true }
+
+[tool.pixi.feature.dev.dependencies]
+mypy = "*"
+pip = "*"
+pre-commit = "*"
+pytest = ">=8"
+ruff = "*"
+
+[tool.pixi.feature.dev.tasks]
+test = "pytest"
+lint = "pre-commit run --all-files"
+
+[tool.pixi.feature.xcube.dependencies]
+xcube = ">=1.13"
+xcube-cci = ">=0.14"
+
+# Lowest and most recent supported Python version.
+[tool.pixi.feature.py311.dependencies]
+python = "3.11.*"
+
+[tool.pixi.feature.py314.dependencies]
+python = "3.14.*"
+
+[tool.pixi.environments]
+default = ["dev"]
+xcube = ["dev", "xcube"]
+py311 = ["dev", "py311"]
+py314 = ["dev", "py314"]
 
 [tool.setuptools.packages.find]
 where = ["src"]
@@ -42,7 +74,6 @@ addopts = "-ra --strict-markers"
 
 [tool.ruff]
 line-length = 79
-target-version = "py311"
 
 [tool.ruff.lint]
 select = ["ALL"]
@@ -72,4 +103,4 @@ disallow_subclassing_any = false
 [[tool.mypy.overrides]]
 # Remove once woodpecker ships a py.typed marker.
 module = ["woodpecker", "woodpecker.*"]
-ignore_missing_imports = true
+follow_untyped_imports = true
