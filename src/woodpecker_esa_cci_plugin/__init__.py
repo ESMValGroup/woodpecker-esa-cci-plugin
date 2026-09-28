@@ -4,6 +4,8 @@ Importing this package registers its fixes with woodpecker. Woodpecker
 imports it automatically through the ``woodpecker.plugins`` entry point.
 """
 
-from .esa_cci_0001 import AddTcwvStandardName
+from .grid_mapping_from_wkt import GridMappingFromWkt
+from .select_variables import SelectVariables
+from .set_attributes import SetAttributes
 
-__all__ = ["AddTcwvStandardName"]
+__all__ = ["GridMappingFromWkt", "SelectVariables", "SetAttributes"]

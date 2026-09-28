@@ -13,4 +13,5 @@ def tcwv_dataset() -> xr.Dataset:
     dataset["tcwv"].attrs["standard_name"] = (
         "atmosphere_mass_content_of_water_vapor"
     )
+    dataset["tcwv"].attrs["units"] = "kg/m2"
     return dataset

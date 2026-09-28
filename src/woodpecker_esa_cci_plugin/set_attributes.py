@@ -1,0 +1,90 @@
+"""Set attributes on ESA CCI variables."""
+
+from __future__ import annotations
+
+from collections.abc import Mapping
+from typing import TYPE_CHECKING
+
+from woodpecker.fixes.labels import Labels
+from woodpecker.fixes.registry import FixFunction, register_fix_function
+
+if TYPE_CHECKING:
+    import xarray as xr
+
+
+@register_fix_function
+class SetAttributes(FixFunction):
+    """Set attributes on variables where they are missing or wrong.
+
+    The correct attributes are configured with the ``attributes`` option,
+    a mapping from variable name to a mapping of attribute names to values.
+    Attributes with the value ``None`` are removed.
+    """
+
+    suffix = "set_attributes"
+    name = "Set attributes"
+    description = (
+        "Sets attributes on the configured variables when they are missing "
+        "or differ from the configured values, and removes attributes "
+        "configured as None."
+    )
+    categories = ["metadata"]  # noqa: RUF012
+    priority = 50
+    dataset = "ESA-CCI"
+    labels = [Labels.RISK_METADATA_ONLY]  # noqa: RUF012
+
+    def _attributes(self) -> dict[str, dict[str, object]]:
+        raw = self.config.get("attributes", {})
+        if not isinstance(raw, Mapping) or not all(
+            isinstance(attrs, Mapping) for attrs in raw.values()
+        ):
+            msg = (
+                "The attributes option must be a mapping from variable name "
+                "to a mapping of attribute names to values"
+            )
+            raise TypeError(msg)
+        return {str(var): dict(attrs) for var, attrs in raw.items()}
+
+    def _wrong(self, dataset: xr.Dataset) -> dict[str, dict[str, object]]:
+        wrong = {}
+        for var, attrs in self._attributes().items():
+            if var not in dataset.variables:
+                continue
+            current = dataset[var].attrs
+            if changes := {
+                key: value
+                for key, value in attrs.items()
+                if current.get(key) != value
+            }:
+                wrong[var] = changes
+        return wrong
+
+    def matches(self, dataset: xr.Dataset) -> bool:
+        """Return whether the fix applies to ``dataset``."""
+        return bool(self._wrong(dataset))
+
+    def check(self, dataset: xr.Dataset, **_options: object) -> list[str]:
+        """Return a finding message for each detected problem."""
+        return [
+            f"{var} has {key} {dataset[var].attrs.get(key)!r}, "
+            + ("expected no value" if value is None else f"expected {value!r}")
+            for var, changes in self._wrong(dataset).items()
+            for key, value in changes.items()
+        ]
+
+    def apply(
+        self,
+        dataset: xr.Dataset,
+        dry_run: bool = True,  # noqa: FBT001, FBT002
+    ) -> bool:
+        """Apply the fix in place and return whether anything changed."""
+        wrong = self._wrong(dataset)
+        if not dry_run:
+            for var, changes in wrong.items():
+                attrs = dataset[var].attrs
+                for key, value in changes.items():
+                    if value is None:
+                        del attrs[key]
+                    else:
+                        attrs[key] = value
+        return bool(wrong)

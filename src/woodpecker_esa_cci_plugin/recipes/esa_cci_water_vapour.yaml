@@ -5,5 +5,35 @@ recipes:
       path_patterns:
         - "*ESACCI-WATERVAPOUR-*"
     steps:
-      - id: esa_cci.add_tcwv_standard_name
+      # Runs before select_variables so that crs is kept through grid_mapping.
+      # Woodpecker allows each fix only once per recipe, so all attributes are
+      # set here, using the original variable names.
+      - id: esa_cci.set_attributes
+        options:
+          attributes:
+            tcwv:
+              standard_name: atmosphere_mass_content_of_water_vapor
+              long_name: Water Vapor Path
+              cell_methods: "area: time: mean"
+              grid_mapping: crs
+            crs:
+              # Not a valid CF standard_name.
+              standard_name: null
+      - id: esa_cci.grid_mapping_from_wkt
+        options:
+          variable: crs
+          wkt_attribute: wkt
+      - id: esa_cci.select_variables
+        options:
+          variables: [tcwv]
+      - id: woodpecker.rename_variables
+        options:
+          mapping:
+            prw: [tcwv]
+      # TODO: check if woodpecker's convert_units can write the units with
+      # cf_xarray's format="cf", so they become "kg m-2" instead of "kg/m²".
+      - id: woodpecker.convert_units
+        options:
+          units:
+            prw: kg m-2
       - id: woodpecker.ensure_latitude_is_increasing

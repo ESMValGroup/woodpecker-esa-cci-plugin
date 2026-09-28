@@ -5,10 +5,24 @@ ESA CCI fixes and recipes for
 
 This plugin registers:
 
-- Fix `esa_cci.add_tcwv_standard_name`: sets the CF `standard_name` on the
-  `tcwv` variable when it is missing.
-- Recipe `esa_cci.water_vapour`: combines the fix above with the core
-  `woodpecker.ensure_latitude_is_increasing` fix.
+- Fix `esa_cci.set_attributes`: sets attributes on variables where they are
+  missing or wrong. The correct values are configured with the `attributes`
+  option, a mapping from variable name to a mapping of attribute names to
+  values. Attributes set to `null` are removed.
+- Fix `esa_cci.select_variables`: drops all data variables except the ones
+  configured with the `variables` option and the variables they refer to
+  through CF attributes, such as ancillary variables and coordinate bounds.
+- Fix `esa_cci.grid_mapping_from_wkt`: sets the CF grid mapping attributes
+  of the variable configured with the `variable` option from the WKT string
+  in its `wkt_attribute` attribute, using
+  [pyproj](https://pyproj4.github.io/pyproj/). The WKT attribute is replaced
+  by the CF `crs_wkt` attribute.
+- Recipe `esa_cci.water_vapour`: sets the `standard_name`, `long_name`,
+  `cell_methods` and `grid_mapping` of `tcwv`, makes `crs` a CF grid mapping,
+  selects `tcwv`, renames it to `prw`, converts it to `kg m-2`, and makes
+  latitude increasing. It combines the fixes above with the core woodpecker
+  fixes `rename_variables`, `convert_units` and
+  `ensure_latitude_is_increasing`.
 
 ## How it works
 
@@ -50,7 +64,10 @@ pixi run lint                 # run all pre-commit checks
 Other environments, selected with `-e`:
 
 - `py311`, `py314`: lowest and most recent supported Python version.
-- `xcube`: includes xcube and xcube-cci, e.g. `pixi run -e xcube test`.
+- `xcube`: includes xcube, xcube-cci, ncdata and iris, e.g.
+  `pixi run -e xcube test`. This also runs the integration tests, which load
+  data from the ESA CCI Open Data Portal and need internet access. Select them
+  with `-m integration`.
 
 Check that woodpecker picks up the plugin:
 
