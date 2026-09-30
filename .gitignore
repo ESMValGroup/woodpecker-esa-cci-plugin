@@ -6,4 +6,6 @@ dist/
 *.egg-info/
 .mypy_cache/
 .pytest_cache/
+.coverage
+coverage.xml
 .ruff_cache/

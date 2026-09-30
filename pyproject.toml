@@ -41,6 +41,7 @@ mypy = "*"
 pip = "*"
 pre-commit = "*"
 pytest = ">=8"
+pytest-cov = "*"
 ruff = "*"
 
 [tool.pixi.feature.dev.tasks]
@@ -78,10 +79,14 @@ fallback_version = "0.0.0"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-addopts = "-ra --strict-markers"
+addopts = "-ra --strict-markers --cov --cov-report=term-missing --cov-report=xml"
 markers = [
   "integration: tests that download data from the ESA CCI Open Data Portal",
 ]
+
+[tool.coverage.run]
+source = ["woodpecker_esa_cci_plugin"]
+branch = true
 
 [tool.ruff]
 line-length = 79

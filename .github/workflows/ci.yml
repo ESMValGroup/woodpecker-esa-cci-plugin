@@ -47,3 +47,10 @@ jobs:
 
       - name: Run tests
         run: pixi run -e ${{ matrix.environment }} test
+
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v7
+        with:
+          files: coverage.xml
+          flags: ${{ matrix.environment }}
+          token: ${{ secrets.CODECOV_TOKEN }}

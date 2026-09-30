@@ -1,5 +1,7 @@
 # woodpecker-esa-cci-plugin
 
+[![codecov](https://codecov.io/gh/esmvalgroup/woodpecker-esa-cci-plugin/graph/badge.svg)](https://codecov.io/gh/esmvalgroup/woodpecker-esa-cci-plugin)
+
 ESA CCI fixes and recipes for
 [Woodpecker](https://github.com/roocs/woodpecker).
 
@@ -51,7 +53,7 @@ pinned in `pixi.lock`.
 ```bash
 pixi install                  # create the default environment in .pixi/
 pixi run pre-commit install   # run ruff, mypy and basic checks on commit
-pixi run test                 # run the tests
+pixi run test                 # run the tests and report coverage
 pixi run lint                 # run all pre-commit checks
 ```
 
