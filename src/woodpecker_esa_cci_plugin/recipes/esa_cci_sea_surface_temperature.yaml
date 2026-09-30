@@ -19,16 +19,16 @@ recipes:
         options:
           units:
             analysed_sst: degC
-      - id: esa_cci.select_variables
-        options:
-          variables: [analysed_sst]
-      - id: esa_cci.normalize_longitude
-        options:
-          coordinate: lon
       - id: esa_cci.set_time_units
         options:
           coordinate: time
           units: days since 1850-01-01
+      - id: esa_cci.normalize_longitude
+        options:
+          coordinate: lon
+      - id: esa_cci.select_variables
+        options:
+          variables: [analysed_sst]
       - id: woodpecker.rename_variables
         options:
           mapping:

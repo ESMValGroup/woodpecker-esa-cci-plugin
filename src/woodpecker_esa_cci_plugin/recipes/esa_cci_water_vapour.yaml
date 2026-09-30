@@ -28,13 +28,13 @@ recipes:
         options:
           variable: crs
           wkt_attribute: wkt
-      - id: esa_cci.select_variables
-        options:
-          variables: [tcwv]
       - id: woodpecker.ensure_latitude_is_increasing
       - id: esa_cci.normalize_longitude
         options:
           coordinate: lon
+      - id: esa_cci.select_variables
+        options:
+          variables: [tcwv]
       - id: woodpecker.rename_variables
         options:
           mapping:
