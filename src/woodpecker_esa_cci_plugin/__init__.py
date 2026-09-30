@@ -9,6 +9,7 @@ from .grid_mapping_from_wkt import GridMappingFromWkt
 from .normalize_longitude import NormalizeLongitude
 from .select_variables import SelectVariables
 from .set_attributes import SetAttributes
+from .set_time_units import SetTimeUnits
 
 __all__ = [
     "ConvertUnits",
@@ -16,4 +17,5 @@ __all__ = [
     "NormalizeLongitude",
     "SelectVariables",
     "SetAttributes",
+    "SetTimeUnits",
 ]

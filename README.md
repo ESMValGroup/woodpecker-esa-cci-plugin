@@ -30,13 +30,22 @@ This plugin registers:
   reorders the data so the coordinate stays increasing. Their `valid_range`,
   `valid_min` and `valid_max` attributes are updated to match. Unlike the core
   woodpecker `normalize_longitude_convention` fix, the result is monotonic.
-- Recipe `esa_cci.water_vapour`: converts `tcwv` to `kg m-2`, sets its
-  `standard_name`, `long_name`, `cell_methods` and `grid_mapping`, makes `crs`
-  a CF grid mapping, selects `tcwv`, renames it to `prw`, makes latitude
-  increasing, and wraps longitude to [0, 360). It combines the fixes above
+- Recipe `esa_cci.water_vapour`: sets the `standard_name`, `long_name`,
+  `cell_methods` and `grid_mapping` of `tcwv`, converts it to `kg m-2`, makes
+  `crs` a CF grid mapping, selects `tcwv`, makes latitude increasing, wraps
+  longitude to [0, 360), and renames `tcwv` to `prw`. It combines the fixes above
   with the core woodpecker fixes `rename_variables` and
   `ensure_latitude_is_increasing`. The result passes the ESMValCore CMIP7
-  CMOR check.
+  CMOR check as `atmos` variable `prw`.
+- Fix `esa_cci.set_time_units`: sets the units that the decoded time
+  coordinate configured with the `coordinate` option, and its bounds, are
+  stored in to the `units` option, e.g. `days since 1850-01-01`. The time
+  values do not change, only how they are written.
+- Recipe `esa_cci.sea_surface_temperature`: sets the `standard_name`,
+  `long_name` and `cell_methods` of `analysed_sst`, converts it to `degC`,
+  selects `analysed_sst`, wraps longitude to [0, 360), stores time in days
+  since 1850-01-01, and renames `analysed_sst` to `tos`. The result passes the ESMValCore
+  CMIP7 CMOR check as `ocean` variable `tos`.
 
 The fixes are strict: they raise an error when a configured variable or
 attribute does not exist or an option is empty, instead of silently doing

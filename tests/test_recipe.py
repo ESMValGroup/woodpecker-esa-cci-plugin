@@ -1,14 +1,19 @@
 import numpy as np
+import pytest
 import woodpecker
 import xarray as xr
 
 RECIPE_ID = "esa_cci.water_vapour"
 
 
-def test_recipe_is_discovered_from_package() -> None:
-    recipe = woodpecker.recipe.get(RECIPE_ID)
+@pytest.mark.parametrize(
+    "recipe_id",
+    [RECIPE_ID, "esa_cci.sea_surface_temperature"],
+)
+def test_recipe_is_discovered_from_package(recipe_id: str) -> None:
+    recipe = woodpecker.recipe.get(recipe_id)
 
-    assert recipe.id == RECIPE_ID
+    assert recipe.id == recipe_id
 
 
 def test_recipe_fixes_dataset(tcwv_dataset: xr.Dataset) -> None:

@@ -131,6 +131,36 @@ def test_value_attributes_are_converted(tcwv_dataset: xr.Dataset) -> None:
     assert attrs["missing_value"] == -1.0
 
 
+def test_packed_value_attributes_are_unpacked(
+    tcwv_dataset: xr.Dataset,
+) -> None:
+    # Like the ESA CCI SST data: int16 packed kelvin, where CF stores the
+    # valid range in the packed data type, but actual_range unpacked.
+    tcwv = tcwv_dataset["tcwv"]
+    tcwv.attrs.update(
+        units="kelvin",
+        valid_min=-300,
+        valid_max=4500,
+        actual_range=[270.0, 310.0],
+    )
+    tcwv.encoding = {
+        "dtype": np.dtype("int16"),
+        "scale_factor": 0.01,
+        "add_offset": 273.15,
+        "_FillValue": np.int16(-32768),
+    }
+    options = {FIX_ID: {"units": {"tcwv": "degC"}}}
+
+    woodpecker.apply(
+        tcwv_dataset, fixes=FIX_ID, dry_run=False, options=options
+    )
+    attrs = tcwv_dataset["tcwv"].attrs
+    np.testing.assert_allclose(attrs["valid_min"], -3.0)
+    np.testing.assert_allclose(attrs["valid_max"], 45.0)
+    np.testing.assert_allclose(attrs["actual_range"], [-3.15, 36.85])
+    assert tcwv_dataset["tcwv"].encoding == {}
+
+
 def test_dimension_coordinate_and_bounds_are_converted(
     tcwv_dataset: xr.Dataset,
 ) -> None:

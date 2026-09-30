@@ -5,14 +5,9 @@ recipes:
       path_patterns:
         - "*ESACCI-WATERVAPOUR-*"
     steps:
-      # Steps run in the order listed here and all use the original variable
-      # names, so that recipe checks on unmodified data report every problem.
-      # Woodpecker allows each fix only once per recipe.
-      - id: esa_cci.convert_units
-        options:
-          units:
-            tcwv: kg m-2
-      # Runs before select_variables so that crs is kept through grid_mapping.
+      # Steps run in the order listed here. The variables are renamed last,
+      # so all steps use the original variable names. Woodpecker allows each
+      # fix only once per recipe.
       - id: esa_cci.set_attributes
         options:
           attributes:
@@ -20,10 +15,15 @@ recipes:
               standard_name: atmosphere_mass_content_of_water_vapor
               long_name: Water Vapor Path
               cell_methods: "area: time: mean"
+              # Keeps crs when selecting variables.
               grid_mapping: crs
             crs:
               # Not a valid CF standard_name.
               standard_name: null
+      - id: esa_cci.convert_units
+        options:
+          units:
+            tcwv: kg m-2
       - id: esa_cci.grid_mapping_from_wkt
         options:
           variable: crs
@@ -31,11 +31,11 @@ recipes:
       - id: esa_cci.select_variables
         options:
           variables: [tcwv]
-      - id: woodpecker.rename_variables
-        options:
-          mapping:
-            prw: [tcwv]
       - id: woodpecker.ensure_latitude_is_increasing
       - id: esa_cci.normalize_longitude
         options:
           coordinate: lon
+      - id: woodpecker.rename_variables
+        options:
+          mapping:
+            prw: [tcwv]

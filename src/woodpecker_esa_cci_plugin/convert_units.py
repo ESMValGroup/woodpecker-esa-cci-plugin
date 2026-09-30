@@ -23,6 +23,15 @@ VALUE_ATTRIBUTES = (
     "valid_min",
     "valid_range",
 )
+# Value attributes that CF stores in the packed data type, see
+# https://cfconventions.org/cf-conventions/cf-conventions.html#packed-data
+PACKED_ATTRIBUTES = (
+    "_FillValue",
+    "missing_value",
+    "valid_max",
+    "valid_min",
+    "valid_range",
+)
 # Attributes that name variables with the same units as the variable.
 BOUNDS_ATTRIBUTES = ("bounds", "climatology")
 # Encoding keys that store the values in the original units.
@@ -49,6 +58,13 @@ def _convert(value: Any, current: str, unit: str) -> Any:  # noqa: ANN401
     return _units().Quantity(value, current).to(unit).magnitude
 
 
+def _unpack(value: Any, encoding: dict[Any, Any]) -> Any:  # noqa: ANN401
+    """Unpack ``value`` with the packing parameters in ``encoding``."""
+    scale_factor = encoding.get("scale_factor", 1)
+    add_offset = encoding.get("add_offset", 0)
+    return value * scale_factor + add_offset
+
+
 def _convert_variable(
     variable: xr.Variable,
     current: str,
@@ -57,15 +73,16 @@ def _convert_variable(
     """Return ``variable`` with its data and value attributes converted."""
     # Dimension coordinates cannot be changed in place, so make a copy.
     variable = variable.copy(data=_convert(variable.data, current, unit))
-    for key in VALUE_ATTRIBUTES:
-        if key in variable.attrs:
-            variable.attrs[key] = _convert(
-                np.asarray(variable.attrs[key]), current, unit
-            )
-    # Packed or integer values cannot store the converted values, so let
-    # xarray choose a new encoding.
     encoding = variable.encoding
     packed = "scale_factor" in encoding or "add_offset" in encoding
+    for key in VALUE_ATTRIBUTES:
+        if key in variable.attrs:
+            value = np.asarray(variable.attrs[key])
+            if packed and key in PACKED_ATTRIBUTES:
+                value = _unpack(value, encoding)
+            variable.attrs[key] = _convert(value, current, unit)
+    # Packed or integer values cannot store the converted values, so let
+    # xarray choose a new encoding.
     integer = np.issubdtype(encoding.get("dtype", float), np.integer)
     if packed or integer:
         for key in PACKING_ENCODING:
@@ -100,7 +117,9 @@ class ConvertUnits(FixFunction):
     variable name to units. The units attribute is set to the configured
     string, so it should be a valid CF units string, e.g. ``kg m-2``.
     Value attributes such as ``valid_range``, packing encoding and bounds
-    variables are converted along with the data. Variables that do not
+    variables are converted along with the data. For packed data, value
+    attributes that CF stores in the packed data type, such as
+    ``valid_min``, are unpacked first. Variables that do not
     exist or have no units attribute raise an error, because they cannot
     be converted.
     """

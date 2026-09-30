@@ -1,0 +1,35 @@
+recipes:
+  - id: esa_cci.sea_surface_temperature
+    description: Prepare ESA CCI sea surface temperature (SST) datasets
+    match:
+      path_patterns:
+        - "*ESACCI-*-SST-*"
+    steps:
+      # Steps run in the order listed here. The variables are renamed last,
+      # so all steps use the original variable names. Woodpecker allows each
+      # fix only once per recipe.
+      - id: esa_cci.set_attributes
+        options:
+          attributes:
+            analysed_sst:
+              standard_name: sea_surface_temperature
+              long_name: Sea Surface Temperature
+              cell_methods: "area: mean where sea time: mean"
+      - id: esa_cci.convert_units
+        options:
+          units:
+            analysed_sst: degC
+      - id: esa_cci.select_variables
+        options:
+          variables: [analysed_sst]
+      - id: esa_cci.normalize_longitude
+        options:
+          coordinate: lon
+      - id: esa_cci.set_time_units
+        options:
+          coordinate: time
+          units: days since 1850-01-01
+      - id: woodpecker.rename_variables
+        options:
+          mapping:
+            tos: [analysed_sst]
