@@ -17,12 +17,21 @@ This plugin registers:
   in its `wkt_attribute` attribute, using
   [pyproj](https://pyproj4.github.io/pyproj/). The WKT attribute is replaced
   by the CF `crs_wkt` attribute.
-- Recipe `esa_cci.water_vapour`: sets the `standard_name`, `long_name`,
-  `cell_methods` and `grid_mapping` of `tcwv`, makes `crs` a CF grid mapping,
-  selects `tcwv`, renames it to `prw`, converts it to `kg m-2`, and makes
-  latitude increasing. It combines the fixes above with the core woodpecker
-  fixes `rename_variables`, `convert_units` and
-  `ensure_latitude_is_increasing`.
+- Fix `esa_cci.convert_units`: converts the variables configured with the
+  `units` option, a mapping from variable name to units, using
+  [pint](https://pint.readthedocs.io) with the
+  [cf-xarray](https://cf-xarray.readthedocs.io) units registry. Unlike the
+  core woodpecker `convert_units` fix, it sets the units attribute to the
+  configured string, so the result can follow the CF conventions.
+- Recipe `esa_cci.water_vapour`: converts `tcwv` to `kg m-2`, sets its
+  `standard_name`, `long_name`, `cell_methods` and `grid_mapping`, makes `crs`
+  a CF grid mapping, selects `tcwv`, renames it to `prw`, and makes latitude
+  increasing. It combines the fixes above with the core woodpecker fixes
+  `rename_variables` and `ensure_latitude_is_increasing`.
+
+The fixes are strict: they raise an error when a configured variable or
+attribute does not exist or an option is empty, instead of silently doing
+nothing. A fix without any options does nothing.
 
 ## How it works
 
@@ -33,21 +42,6 @@ This plugin registers:
   `woodpecker_esa_cci_plugin` becomes `esa_cci`.
 - Recipes in `src/woodpecker_esa_cci_plugin/recipes/*.yaml` are discovered
   automatically.
-
-## Loading data with xcube
-
-The optional `xcube` extra installs [xcube](https://github.com/xcube-dev/xcube)
-and its [ESA CCI plugin](https://github.com/esa-cci/xcube-cci) for loading
-data from the ESA CCI Open Data Portal:
-
-```bash
-pip install "woodpecker-esa-cci-plugin[xcube]"
-```
-
-xcube depends on GDAL, which PyPI only ships as source code, so this needs
-GDAL installed on your system (e.g. `libgdal-dev` on Debian/Ubuntu). The
-`xcube` pixi environment below installs everything from conda-forge instead,
-which avoids this.
 
 ## Development
 
@@ -64,7 +58,8 @@ pixi run lint                 # run all pre-commit checks
 Other environments, selected with `-e`:
 
 - `py311`, `py314`: lowest and most recent supported Python version.
-- `xcube`: includes xcube, xcube-cci, ncdata and iris, e.g.
+- `xcube`: includes [xcube](https://github.com/xcube-dev/xcube), its
+  [ESA CCI plugin](https://github.com/esa-cci/xcube-cci), ncdata and iris, e.g.
   `pixi run -e xcube test`. This also runs the integration tests, which load
   data from the ESA CCI Open Data Portal and need internet access. Select them
   with `-m integration`.

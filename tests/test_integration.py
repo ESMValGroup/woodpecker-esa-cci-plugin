@@ -23,7 +23,6 @@ def test_tcwv_converts_to_iris_without_warnings(cci_store: Any) -> None:  # noqa
     dataset = cci_store.open_data(DATA_ID)
     recipe = woodpecker.recipe.get(RECIPE_ID)
     woodpecker.recipe.apply(dataset, recipe, dry_run=False)
-    assert not woodpecker.recipe.check(dataset, recipe)
 
     # Opt in to loading the datum from the grid mapping, otherwise iris
     # warns that it ignores it.

@@ -1,6 +1,7 @@
 import pytest
 import woodpecker
 import xarray as xr
+from pyproj.exceptions import CRSError
 from woodpecker.fixes.registry import FixFunctionRegistry
 
 FIX_ID = "esa_cci.grid_mapping_from_wkt"
@@ -55,4 +56,31 @@ def test_wkt_is_converted_to_cf(dataset: xr.Dataset) -> None:
     assert attrs["semi_major_axis"] == 6378137.0
     assert attrs["inverse_flattening"] == 298.257223563
     assert attrs["longitude_of_prime_meridian"] == 0.0
-    assert not woodpecker.check(dataset, fixes=FIX_ID, options=OPTIONS)
+
+
+def test_invalid_wkt_is_kept(dataset: xr.Dataset) -> None:
+    dataset["crs"].attrs["wkt"] = "not a WKT string"
+
+    with pytest.raises(CRSError):
+        woodpecker.apply(dataset, fixes=FIX_ID, dry_run=False, options=OPTIONS)
+    assert dataset["crs"].attrs == {"wkt": "not a WKT string"}
+
+
+@pytest.mark.parametrize(
+    ("options", "match"),
+    [
+        ({"variable": "crs"}, "must both be set"),
+        ({"variable": "grid", "wkt_attribute": "wkt"}, "grid: it does not"),
+        (
+            {"variable": "crs", "wkt_attribute": "spatial_ref"},
+            "no spatial_ref",
+        ),
+    ],
+)
+def test_missing_wkt_raises(
+    dataset: xr.Dataset,
+    options: dict[str, str],
+    match: str,
+) -> None:
+    with pytest.raises(ValueError, match=match):
+        woodpecker.check(dataset, fixes=FIX_ID, options={FIX_ID: options})

@@ -1,3 +1,4 @@
+import numpy as np
 import pytest
 import woodpecker
 import xarray as xr
@@ -78,3 +79,44 @@ def test_attribute_set_to_none_is_removed(clean_dataset: xr.Dataset) -> None:
     )
     assert "long_name" not in clean_dataset["tcwv"].attrs
     assert not woodpecker.check(clean_dataset, fixes=FIX_ID, options=options)
+
+
+@pytest.mark.parametrize(
+    ("current", "value", "expected"),
+    [
+        (np.array([0.0, 100.0]), [0.0, 100.0], False),
+        (np.array([0.0, 100.0]), [0.0, 70.0], True),
+        (np.nan, np.nan, False),
+        (np.float32(np.nan), 0.0, True),
+    ],
+)
+def test_array_and_nan_values_are_compared(
+    clean_dataset: xr.Dataset,
+    current: object,
+    value: object,
+    expected: bool,  # noqa: FBT001
+) -> None:
+    clean_dataset["tcwv"].attrs["valid_range"] = current
+    options = {FIX_ID: {"attributes": {"tcwv": {"valid_range": value}}}}
+
+    findings = woodpecker.check(clean_dataset, fixes=FIX_ID, options=options)
+    assert bool(findings) is expected
+
+
+@pytest.mark.parametrize(
+    ("attributes", "match"),
+    [
+        ({}, "must not be empty"),
+        ({"tcwv": {}}, "must not be empty"),
+        ({"prw": ATTRIBUTES}, "prw: it does not exist"),
+    ],
+)
+def test_missing_variable_raises(
+    clean_dataset: xr.Dataset,
+    attributes: dict[str, dict[str, str]],
+    match: str,
+) -> None:
+    options = {FIX_ID: {"attributes": attributes}}
+
+    with pytest.raises(ValueError, match=match):
+        woodpecker.check(clean_dataset, fixes=FIX_ID, options=options)

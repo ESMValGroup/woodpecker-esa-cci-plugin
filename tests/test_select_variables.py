@@ -1,3 +1,5 @@
+from typing import Any
+
 import numpy as np
 import pytest
 import woodpecker
@@ -33,14 +35,34 @@ def test_unconfigured_fix_does_nothing(dataset: xr.Dataset) -> None:
     assert not woodpecker.check(dataset, fixes=FIX_ID)
 
 
-def test_missing_variable_keeps_everything(dataset: xr.Dataset) -> None:
-    options = {FIX_ID: {"variables": ["prw"]}}
+@pytest.mark.parametrize(
+    ("variables", "match"),
+    [([], "must not be empty"), (["tcwv", "prw"], "select prw: not in")],
+)
+def test_missing_variable_raises(
+    dataset: xr.Dataset,
+    variables: list[str],
+    match: str,
+) -> None:
+    options = {FIX_ID: {"variables": variables}}
 
-    assert not woodpecker.check(dataset, fixes=FIX_ID, options=options)
+    with pytest.raises(ValueError, match=match):
+        woodpecker.check(dataset, fixes=FIX_ID, options=options)
 
 
-def test_invalid_option_raises(dataset: xr.Dataset) -> None:
-    options = {FIX_ID: {"variables": "tcwv"}}
+def test_tuple_option_is_accepted(dataset: xr.Dataset) -> None:
+    options = {FIX_ID: {"variables": ("tcwv",)}}
+
+    woodpecker.apply(dataset, fixes=FIX_ID, dry_run=False, options=options)
+    assert "tcwv_err" not in dataset
+
+
+@pytest.mark.parametrize("variables", ["tcwv", b"tcwv"])
+def test_invalid_option_raises(
+    dataset: xr.Dataset,
+    variables: str | bytes,
+) -> None:
+    options = {FIX_ID: {"variables": variables}}
 
     with pytest.raises(TypeError, match="variables option"):
         woodpecker.check(dataset, fixes=FIX_ID, options=options)
@@ -62,3 +84,59 @@ def test_referenced_variables_are_kept(dataset: xr.Dataset) -> None:
     assert result.changed == 1
     assert set(dataset.data_vars) == {"tcwv", "stdv", "crs", "lat_bnds"}
     assert not woodpecker.check(dataset, fixes=FIX_ID, options=OPTIONS)
+
+
+def test_formula_terms_and_climatology_are_kept(dataset: xr.Dataset) -> None:
+    dataset["lev"] = xr.DataArray(
+        [0.5],
+        dims="lev",
+        attrs={"formula_terms": "sigma: lev ps: ps ptop: ptop"},
+    )
+    dataset["ps"] = dataset["tcwv"].copy()
+    dataset["ptop"] = xr.DataArray(0.0)
+    dataset["tcwv"] = dataset["tcwv"].expand_dims("lev")
+    dataset["time"].attrs["climatology"] = "climatology_bnds"
+    dataset["climatology_bnds"] = dataset["time"].expand_dims(nv=2).T
+
+    woodpecker.apply(dataset, fixes=FIX_ID, dry_run=False, options=OPTIONS)
+    assert {"ps", "ptop", "climatology_bnds"} <= set(dataset.data_vars)
+    assert "tcwv_err" not in dataset
+
+
+def test_runs_after_fixes_that_add_references(dataset: xr.Dataset) -> None:
+    for name in ("tcwv", "stdv"):
+        del dataset[name].attrs["grid_mapping"]
+    options: dict[str, dict[str, Any]] = {
+        **OPTIONS,
+        "esa_cci.set_attributes": {
+            "attributes": {"tcwv": {"grid_mapping": "crs"}},
+        },
+    }
+
+    # Without an explicit list of fixes, woodpecker orders them by priority.
+    woodpecker.apply(
+        dataset,
+        dataset="ESA-CCI",
+        dry_run=False,
+        options=options,
+    )
+    assert "crs" in dataset
+
+
+def test_geometry_references_are_kept(dataset: xr.Dataset) -> None:
+    dataset["tcwv"].attrs["geometry"] = "geometry_container"
+    dataset["geometry_container"] = xr.DataArray(
+        0,
+        attrs={
+            "node_coordinates": "x y",
+            "node_count": "node_count",
+            "part_node_count": "part_node_count",
+            "interior_ring": "interior_ring",
+        },
+    )
+    names = ("x", "y", "node_count", "part_node_count", "interior_ring")
+    for name in names:
+        dataset[name] = xr.DataArray([0])
+
+    woodpecker.apply(dataset, fixes=FIX_ID, dry_run=False, options=OPTIONS)
+    assert {"geometry_container", *names} <= set(dataset.data_vars)

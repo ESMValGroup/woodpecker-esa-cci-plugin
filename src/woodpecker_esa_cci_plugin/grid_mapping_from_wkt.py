@@ -19,6 +19,7 @@ class GridMappingFromWkt(FixFunction):
     The grid mapping variable is configured with the ``variable`` option and
     the attribute that holds its WKT string with the ``wkt_attribute``
     option. The WKT attribute is replaced by the CF ``crs_wkt`` attribute.
+    A missing variable or WKT attribute raises an error.
     """
 
     suffix = "grid_mapping_from_wkt"
@@ -42,15 +43,23 @@ class GridMappingFromWkt(FixFunction):
         return value
 
     def _wkt(self, dataset: xr.Dataset) -> tuple[str, str] | None:
-        """Return the variable and WKT attribute names if there is work."""
+        """Return the variable and WKT attribute names if configured."""
         variable = self._option("variable")
         wkt_attribute = self._option("wkt_attribute")
+        if variable is None and wkt_attribute is None:
+            return None
         if variable is None or wkt_attribute is None:
-            return None
+            msg = "The variable and wkt_attribute options must both be set"
+            raise ValueError(msg)
         if variable not in dataset.variables:
-            return None
+            msg = f"Unable to read the WKT of {variable}: it does not exist"
+            raise ValueError(msg)
         if wkt_attribute not in dataset[variable].attrs:
-            return None
+            msg = (
+                f"Unable to read the WKT of {variable}: it has no "
+                f"{wkt_attribute} attribute"
+            )
+            raise ValueError(msg)
         return variable, wkt_attribute
 
     def matches(self, dataset: xr.Dataset) -> bool:
@@ -80,5 +89,9 @@ class GridMappingFromWkt(FixFunction):
         if not dry_run:
             variable, wkt_attribute = found
             attrs = dataset[variable].attrs
-            attrs.update(CRS.from_wkt(attrs.pop(wkt_attribute)).to_cf())
+            # Parse before removing the WKT attribute, so it is kept if
+            # parsing fails.
+            cf_attrs = CRS.from_wkt(attrs[wkt_attribute]).to_cf()
+            del attrs[wkt_attribute]
+            attrs.update(cf_attrs)
         return True

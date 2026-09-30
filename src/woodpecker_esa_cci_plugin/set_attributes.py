@@ -3,13 +3,25 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
+import numpy as np
 from woodpecker.fixes.labels import Labels
 from woodpecker.fixes.registry import FixFunction, register_fix_function
 
 if TYPE_CHECKING:
     import xarray as xr
+
+
+def _equal(current: Any, value: Any) -> bool:  # noqa: ANN401
+    """Return whether attribute values are equal, including arrays and NaN."""
+    if current is None or value is None:
+        return current is value
+    try:
+        return bool(np.array_equal(current, value, equal_nan=True))
+    except TypeError:
+        # NaN checks are not supported for strings.
+        return bool(np.array_equal(current, value))
 
 
 @register_fix_function
@@ -18,7 +30,8 @@ class SetAttributes(FixFunction):
 
     The correct attributes are configured with the ``attributes`` option,
     a mapping from variable name to a mapping of attribute names to values.
-    Attributes with the value ``None`` are removed.
+    Attributes with the value ``None`` are removed. Variables that do not
+    exist raise an error.
     """
 
     suffix = "set_attributes"
@@ -34,7 +47,9 @@ class SetAttributes(FixFunction):
     labels = [Labels.RISK_METADATA_ONLY]  # noqa: RUF012
 
     def _attributes(self) -> dict[str, dict[str, object]]:
-        raw = self.config.get("attributes", {})
+        raw = self.config.get("attributes")
+        if raw is None:
+            return {}
         if not isinstance(raw, Mapping) or not all(
             isinstance(attrs, Mapping) for attrs in raw.values()
         ):
@@ -43,18 +58,22 @@ class SetAttributes(FixFunction):
                 "to a mapping of attribute names to values"
             )
             raise TypeError(msg)
+        if not raw or not all(raw.values()):
+            msg = "The attributes option must not be empty"
+            raise ValueError(msg)
         return {str(var): dict(attrs) for var, attrs in raw.items()}
 
     def _wrong(self, dataset: xr.Dataset) -> dict[str, dict[str, object]]:
         wrong = {}
         for var, attrs in self._attributes().items():
             if var not in dataset.variables:
-                continue
+                msg = f"Unable to set attributes on {var}: it does not exist"
+                raise ValueError(msg)
             current = dataset[var].attrs
             if changes := {
                 key: value
                 for key, value in attrs.items()
-                if current.get(key) != value
+                if not _equal(current.get(key), value)
             }:
                 wrong[var] = changes
         return wrong

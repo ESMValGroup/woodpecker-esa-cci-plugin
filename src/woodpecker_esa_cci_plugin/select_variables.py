@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from typing import TYPE_CHECKING
 
 from woodpecker.fixes.labels import Labels
@@ -13,9 +14,19 @@ if TYPE_CHECKING:
     import xarray as xr
 
 # CF attributes that contain a space separated list of variable names.
-LIST_ATTRIBUTES = ("ancillary_variables", "bounds", "coordinates")
+LIST_ATTRIBUTES = (
+    "ancillary_variables",
+    "bounds",
+    "climatology",
+    "coordinates",
+    "geometry",
+    "interior_ring",
+    "node_coordinates",
+    "node_count",
+    "part_node_count",
+)
 # CF attributes that contain a list of "key: variable" pairs.
-KEY_VALUE_ATTRIBUTES = ("cell_measures", "grid_mapping")
+KEY_VALUE_ATTRIBUTES = ("cell_measures", "formula_terms", "grid_mapping")
 
 
 def _referenced_names(variable: xr.DataArray) -> Iterator[str]:
@@ -37,7 +48,7 @@ def _required_names(
 ) -> set[Hashable]:
     """Return ``names`` and every variable they refer to, recursively."""
     required: set[Hashable] = set()
-    todo: list[Hashable] = [name for name in names if name in dataset]
+    todo: list[Hashable] = list(names)
     while todo:
         name = todo.pop()
         if name in required:
@@ -57,7 +68,8 @@ class SelectVariables(FixFunction):
 
     The variables are configured with the ``variables`` option, a list of
     variable names. Variables they refer to through CF attributes, such as
-    ancillary variables and coordinate bounds, are kept as well.
+    ancillary variables and coordinate bounds, are kept as well. Variables
+    that do not exist raise an error.
     """
 
     suffix = "select_variables"
@@ -67,22 +79,32 @@ class SelectVariables(FixFunction):
         "variables they refer to."
     )
     categories = ["structure"]  # noqa: RUF012
-    priority = 30
+    # Run after fixes that add references to variables, such as
+    # set_attributes adding a grid_mapping.
+    priority = 60
     dataset = "ESA-CCI"
     labels = [Labels.RISK_VARIABLE_REMOVAL]  # noqa: RUF012
 
     def _variables(self) -> list[str]:
-        raw = self.config.get("variables", [])
-        if isinstance(raw, str) or not isinstance(raw, list):
-            msg = "The variables option must be a list of variable names"
+        raw = self.config.get("variables")
+        if raw is None:
+            return []
+        if isinstance(raw, (str, bytes)) or not isinstance(raw, Sequence):
+            msg = "The variables option must be a sequence of variable names"
             raise TypeError(msg)
+        if not raw:
+            msg = "The variables option must not be empty"
+            raise ValueError(msg)
         return [str(name) for name in raw]
 
     def _unwanted(self, dataset: xr.Dataset) -> list[Hashable]:
-        required = _required_names(dataset, self._variables())
-        if not required:
-            # Keep everything if none of the variables are present.
+        variables = self._variables()
+        if not variables:
             return []
+        if missing := [name for name in variables if name not in dataset]:
+            msg = f"Unable to select {', '.join(missing)}: not in the dataset"
+            raise ValueError(msg)
+        required = _required_names(dataset, variables)
         return [name for name in dataset.data_vars if name not in required]
 
     def matches(self, dataset: xr.Dataset) -> bool:
