@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import copy
 from collections.abc import Mapping
 from typing import TYPE_CHECKING, Any
 
@@ -105,5 +106,7 @@ class SetAttributes(FixFunction):
                     if value is None:
                         del attrs[key]
                     else:
-                        attrs[key] = value
+                        # Copy, so datasets do not share lists or dicts with
+                        # the recipe options.
+                        attrs[key] = copy.deepcopy(value)
         return bool(wrong)

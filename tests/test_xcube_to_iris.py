@@ -19,7 +19,7 @@ def cci_store() -> Any:  # noqa: ANN401
     return xcube_store.new_data_store("ccizarr")
 
 
-def test_tcwv_converts_to_iris_without_warnings(cci_store: Any) -> None:  # noqa: ANN401
+def test_prw_loads_with_iris_without_warnings(cci_store: Any) -> None:  # noqa: ANN401
     dataset = cci_store.open_data(DATA_ID)
     recipe = woodpecker.recipe.get(RECIPE_ID)
     woodpecker.recipe.apply(dataset, recipe, dry_run=False)

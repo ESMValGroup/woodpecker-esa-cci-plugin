@@ -37,6 +37,7 @@ xarray = ">=2024.1.0"
 woodpecker-esa-cci-plugin = { path = ".", editable = true }
 
 [tool.pixi.feature.dev.dependencies]
+dask = "*"
 mypy = "*"
 pip = "*"
 pre-commit = "*"
@@ -54,6 +55,13 @@ xcube-cci = ">=0.14"
 ncdata = "*"
 iris = "*"
 
+# ESMValCore requires zarr>3, while xcube-cci requires zarr<3, so this is a
+# separate environment that opens the ESA CCI zarr store directly with s3fs.
+[tool.pixi.feature.esmvalcore.dependencies]
+esmvalcore = ">=2.15"
+ncdata = "*"
+s3fs = "*"
+
 # Lowest and most recent supported Python version.
 [tool.pixi.feature.py311.dependencies]
 python = "3.11.*"
@@ -64,6 +72,7 @@ python = "3.14.*"
 [tool.pixi.environments]
 default = ["dev"]
 xcube = ["dev", "xcube"]
+esmvalcore = ["dev", "esmvalcore"]
 py311 = ["dev", "py311"]
 py314 = ["dev", "py314"]
 
@@ -105,7 +114,6 @@ convention = "numpy"
 [tool.ruff.lint.per-file-ignores]
 "tests/**" = [
   "D",       # no docstrings required in tests
-  "INP001",  # tests are not a package
   "PLR2004", # magic values are fine in assertions
   "S101",    # pytest uses assert
 ]

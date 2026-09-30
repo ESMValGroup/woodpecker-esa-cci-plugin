@@ -73,7 +73,12 @@ def test_units_are_converted(
     )
     assert result.changed == 1
     tcwv = tcwv_dataset["tcwv"]
-    assert tcwv.attrs == {**original.attrs, "units": "kg m-2"}
+    assert tcwv.attrs.keys() == original.attrs.keys()
+    assert tcwv.attrs["units"] == "kg m-2"
+    np.testing.assert_allclose(
+        tcwv.attrs["valid_range"],
+        np.array(original.attrs["valid_range"]) * factor,
+    )
     assert tcwv.dtype == original.dtype
     assert tcwv.encoding == {"dtype": "float32"}
     np.testing.assert_allclose(tcwv, original * factor, rtol=1e-6)

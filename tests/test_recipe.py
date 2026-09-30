@@ -1,7 +1,6 @@
 import numpy as np
 import woodpecker
 import xarray as xr
-from test_grid_mapping_from_wkt import WKT
 
 RECIPE_ID = "esa_cci.water_vapour"
 
@@ -14,16 +13,10 @@ def test_recipe_is_discovered_from_package() -> None:
 
 def test_recipe_fixes_dataset(tcwv_dataset: xr.Dataset) -> None:
     recipe = woodpecker.recipe.get(RECIPE_ID)
-    dataset = tcwv_dataset.isel(lat=slice(None, None, -1))
-    dataset["tcwv"].attrs["units"] = "g m-2"
-    del dataset["tcwv"].attrs["standard_name"]
-    dataset["crs"] = xr.DataArray(
-        0,
-        attrs={"standard_name": "coordinate reference system", "wkt": WKT},
-    )
-    original = dataset["tcwv"].isel(lat=slice(None, None, -1)).copy()
+    tcwv_dataset["tcwv"].attrs["units"] = "g m-2"
+    original = tcwv_dataset.copy(deep=True)
 
-    findings = woodpecker.recipe.check(dataset, recipe)
+    findings = woodpecker.recipe.check(tcwv_dataset, recipe)
     assert set(findings.fix_ids) == {
         "esa_cci.grid_mapping_from_wkt",
         "esa_cci.select_variables",
@@ -31,21 +24,60 @@ def test_recipe_fixes_dataset(tcwv_dataset: xr.Dataset) -> None:
         "esa_cci.convert_units",
         "woodpecker.rename_variables",
         "woodpecker.ensure_latitude_is_increasing",
+        "esa_cci.normalize_longitude",
     }
 
-    woodpecker.recipe.apply(dataset, recipe, dry_run=False)
+    woodpecker.recipe.apply(tcwv_dataset, recipe, dry_run=False)
 
-    assert "tcwv" not in dataset
-    assert dataset["prw"].attrs == {
+    assert set(tcwv_dataset.data_vars) == {
+        "prw",
+        "stdv",
+        "num_obs",
+        "crs",
+        "lat_bnds",
+        "lon_bnds",
+        "time_bnds",
+    }
+    # The real dataset is too large to load, so the data must stay lazy.
+    assert tcwv_dataset["prw"].chunks is not None
+    prw_attrs = tcwv_dataset["prw"].attrs
+    assert {
+        key: prw_attrs[key]
+        for key in (
+            "standard_name",
+            "long_name",
+            "units",
+            "cell_methods",
+            "grid_mapping",
+        )
+    } == {
         "standard_name": "atmosphere_mass_content_of_water_vapor",
         "long_name": "Water Vapor Path",
         "units": "kg m-2",
         "cell_methods": "area: time: mean",
         "grid_mapping": "crs",
     }
-    crs_attrs = dataset["crs"].attrs
+    np.testing.assert_allclose(prw_attrs["valid_range"], [0.0, 0.07])
+    crs_attrs = tcwv_dataset["crs"].attrs
     assert "standard_name" not in crs_attrs
     assert "wkt" not in crs_attrs
     assert crs_attrs["grid_mapping_name"] == "latitude_longitude"
-    np.testing.assert_allclose(dataset["prw"], original * 1e-3, rtol=1e-6)
-    assert (dataset["lat"].diff("lat") > 0).all()
+
+    # Latitude is increasing and longitude is in the range [0, 360).
+    expected = (
+        original["tcwv"]
+        .isel(lat=slice(None, None, -1))
+        .roll(lon=original.sizes["lon"] // 2)
+    )
+    np.testing.assert_allclose(tcwv_dataset["prw"], expected * 1e-3)
+    np.testing.assert_allclose(
+        tcwv_dataset["lat"], original["lat"].to_numpy()[::-1]
+    )
+    np.testing.assert_allclose(
+        tcwv_dataset["lon"], np.arange(22.5, 360.0, 45.0)
+    )
+    np.testing.assert_allclose(
+        tcwv_dataset["lon_bnds"][:, 0], np.arange(0.0, 360.0, 45.0)
+    )
+    for name in ("lon", "lon_bnds"):
+        assert tcwv_dataset[name].attrs["valid_range"] == [0.0, 360.0]

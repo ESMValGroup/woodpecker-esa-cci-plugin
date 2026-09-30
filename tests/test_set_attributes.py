@@ -120,3 +120,16 @@ def test_missing_variable_raises(
 
     with pytest.raises(ValueError, match=match):
         woodpecker.check(clean_dataset, fixes=FIX_ID, options=options)
+
+
+def test_values_are_not_shared_with_options(
+    clean_dataset: xr.Dataset,
+) -> None:
+    valid_range = [0.0, 70.0]
+    options = {FIX_ID: {"attributes": {"tcwv": {"valid_range": valid_range}}}}
+
+    woodpecker.apply(
+        clean_dataset, fixes=FIX_ID, dry_run=False, options=options
+    )
+    clean_dataset["tcwv"].attrs["valid_range"][1] = 80.0
+    assert valid_range == [0.0, 70.0]

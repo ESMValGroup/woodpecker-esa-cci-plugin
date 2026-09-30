@@ -31,8 +31,9 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # Lowest and most recent supported Python version, and with xcube.
-        environment: [py311, py314, xcube]
+        # Lowest and most recent supported Python version, and with xcube
+        # and ESMValCore.
+        environment: [py311, py314, xcube, esmvalcore]
     steps:
       - name: Checkout
         uses: actions/checkout@v4

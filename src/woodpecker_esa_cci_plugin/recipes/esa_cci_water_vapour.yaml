@@ -36,3 +36,6 @@ recipes:
           mapping:
             prw: [tcwv]
       - id: woodpecker.ensure_latitude_is_increasing
+      - id: esa_cci.normalize_longitude
+        options:
+          coordinate: lon

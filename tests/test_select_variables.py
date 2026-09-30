@@ -1,6 +1,5 @@
 from typing import Any
 
-import numpy as np
 import pytest
 import woodpecker
 import xarray as xr
@@ -12,18 +11,8 @@ OPTIONS = {FIX_ID: {"variables": ["tcwv"]}}
 
 @pytest.fixture
 def dataset(tcwv_dataset: xr.Dataset) -> xr.Dataset:
-    """Add variables that tcwv refers to and variables it does not."""
-    tcwv_dataset["tcwv"].attrs["ancillary_variables"] = "stdv"
+    """Make tcwv refer to its grid mapping, like the recipe does."""
     tcwv_dataset["tcwv"].attrs["grid_mapping"] = "crs"
-    tcwv_dataset["stdv"] = tcwv_dataset["tcwv"].copy()
-    tcwv_dataset["tcwv_err"] = tcwv_dataset["tcwv"].copy()
-    tcwv_dataset["crs"] = xr.DataArray(0)
-    lat = tcwv_dataset["lat"].to_numpy()
-    tcwv_dataset["lat_bnds"] = (
-        ("lat", "nv"),
-        np.column_stack([lat - 0.5, lat + 0.5]),
-    )
-    tcwv_dataset["lat"].attrs["bounds"] = "lat_bnds"
     return tcwv_dataset
 
 
@@ -70,7 +59,8 @@ def test_invalid_option_raises(
 
 def test_referenced_variables_are_kept(dataset: xr.Dataset) -> None:
     findings = woodpecker.check(dataset, fixes=FIX_ID, options=OPTIONS)
-    assert findings.fix_ids == (FIX_ID,)
+    # One finding for each variable that is dropped.
+    assert findings.fix_ids == (FIX_ID,) * 4
 
     preview = woodpecker.apply(
         dataset, fixes=FIX_ID, dry_run=True, options=OPTIONS
@@ -82,7 +72,15 @@ def test_referenced_variables_are_kept(dataset: xr.Dataset) -> None:
         dataset, fixes=FIX_ID, dry_run=False, options=OPTIONS
     )
     assert result.changed == 1
-    assert set(dataset.data_vars) == {"tcwv", "stdv", "crs", "lat_bnds"}
+    assert set(dataset.data_vars) == {
+        "tcwv",
+        "stdv",
+        "num_obs",
+        "crs",
+        "lat_bnds",
+        "lon_bnds",
+        "time_bnds",
+    }
     assert not woodpecker.check(dataset, fixes=FIX_ID, options=OPTIONS)
 
 
@@ -104,8 +102,7 @@ def test_formula_terms_and_climatology_are_kept(dataset: xr.Dataset) -> None:
 
 
 def test_runs_after_fixes_that_add_references(dataset: xr.Dataset) -> None:
-    for name in ("tcwv", "stdv"):
-        del dataset[name].attrs["grid_mapping"]
+    del dataset["tcwv"].attrs["grid_mapping"]
     options: dict[str, dict[str, Any]] = {
         **OPTIONS,
         "esa_cci.set_attributes": {
