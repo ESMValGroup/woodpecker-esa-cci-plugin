@@ -89,15 +89,16 @@ def test_longitude_is_wrapped(dataset: xr.Dataset) -> None:
     np.testing.assert_array_equal(dataset["lon"], [45, 135, 225, 315])
     np.testing.assert_array_equal(dataset.indexes["lon"], [45, 135, 225, 315])
     assert dataset["lon"].dtype == np.float32
+    # The range attributes no longer match, so they are removed.
     assert dataset["lon"].attrs == {
-        **original["lon"].attrs,
-        "valid_range": [0.0, 360.0],
+        "units": "degrees_east",
+        "bounds": "lon_bnds",
     }
     np.testing.assert_array_equal(
         dataset["lon_bnds"], [[0, 90], [90, 180], [180, 270], [270, 360]]
     )
     assert dataset["lon_bnds"].dtype == np.float32
-    assert dataset["lon_bnds"].attrs == {"valid_min": 0.0, "valid_max": 360.0}
+    assert dataset["lon_bnds"].attrs == {}
     np.testing.assert_array_equal(dataset["tcwv"], [[3.0, 4.0, 1.0, 2.0]])
     np.testing.assert_array_equal(dataset["lon_label"], ["c", "d", "a", "b"])
     assert "lon_label" in dataset.coords

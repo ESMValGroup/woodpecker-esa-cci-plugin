@@ -9,34 +9,19 @@ import numpy as np
 from woodpecker.fixes.labels import Labels
 from woodpecker.fixes.registry import FixFunction, register_fix_function
 
+from .remove_attributes import remove_range_attributes
+
 if TYPE_CHECKING:
     from collections.abc import Hashable
 
     import xarray as xr
 
-# Attributes with values in the units of the variable.
-VALUE_ATTRIBUTES = (
-    "_FillValue",
-    "actual_range",
-    "missing_value",
-    "valid_max",
-    "valid_min",
-    "valid_range",
-)
-# Value attributes that CF stores in the packed data type, see
-# https://cfconventions.org/cf-conventions/cf-conventions.html#packed-data
-PACKED_ATTRIBUTES = (
-    "_FillValue",
-    "missing_value",
-    "valid_max",
-    "valid_min",
-    "valid_range",
-)
 # Attributes that name variables with the same units as the variable.
 BOUNDS_ATTRIBUTES = ("bounds", "climatology")
 # Encoding keys that store the values in the original units.
 PACKING_ENCODING = (
     "_FillValue",
+    "_Unsigned",
     "add_offset",
     "dtype",
     "missing_value",
@@ -58,29 +43,18 @@ def _convert(value: Any, current: str, unit: str) -> Any:  # noqa: ANN401
     return _units().Quantity(value, current).to(unit).magnitude
 
 
-def _unpack(value: Any, encoding: dict[Any, Any]) -> Any:  # noqa: ANN401
-    """Unpack ``value`` with the packing parameters in ``encoding``."""
-    scale_factor = encoding.get("scale_factor", 1)
-    add_offset = encoding.get("add_offset", 0)
-    return value * scale_factor + add_offset
-
-
 def _convert_variable(
     variable: xr.Variable,
     current: str,
     unit: str,
 ) -> xr.Variable:
-    """Return ``variable`` with its data and value attributes converted."""
+    """Return ``variable`` with its data converted."""
     # Dimension coordinates cannot be changed in place, so make a copy.
     variable = variable.copy(data=_convert(variable.data, current, unit))
+    # The range attributes are in the original units.
+    remove_range_attributes(variable)
     encoding = variable.encoding
     packed = "scale_factor" in encoding or "add_offset" in encoding
-    for key in VALUE_ATTRIBUTES:
-        if key in variable.attrs:
-            value = np.asarray(variable.attrs[key])
-            if packed and key in PACKED_ATTRIBUTES:
-                value = _unpack(value, encoding)
-            variable.attrs[key] = _convert(value, current, unit)
     # Packed or integer values cannot store the converted values, so let
     # xarray choose a new encoding.
     integer = np.issubdtype(encoding.get("dtype", float), np.integer)
@@ -116,12 +90,12 @@ class ConvertUnits(FixFunction):
     The units are configured with the ``units`` option, a mapping from
     variable name to units. The units attribute is set to the configured
     string, so it should be a valid CF units string, e.g. ``kg m-2``.
-    Value attributes such as ``valid_range``, packing encoding and bounds
-    variables are converted along with the data. For packed data, value
-    attributes that CF stores in the packed data type, such as
-    ``valid_min``, are unpacked first. Variables that do not
-    exist or have no units attribute raise an error, because they cannot
-    be converted.
+    Bounds variables are converted along with the data. The range
+    attributes ``actual_range``, ``valid_min``, ``valid_max`` and
+    ``valid_range`` are removed from the converted variables, and so is
+    packing encoding that cannot store the converted values. Variables that
+    do not exist or have no units attribute raise an error, because they
+    cannot be converted.
     """
 
     suffix = "convert_units"

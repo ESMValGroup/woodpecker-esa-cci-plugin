@@ -27,7 +27,7 @@ def test_invalid_option_raises(tcwv_dataset: xr.Dataset) -> None:
 @pytest.mark.parametrize(
     ("options", "match"),
     [
-        ({"coordinate": "time"}, "must both be set"),
+        ({"coordinate": "time"}, "units or calendar option must be set"),
         ({"coordinate": "t", "units": UNITS}, "t: it does not exist"),
         ({"coordinate": "lat", "units": UNITS}, "lat: it is not decoded"),
     ],
@@ -73,3 +73,25 @@ def test_time_units_are_set(tcwv_dataset: xr.Dataset) -> None:
     assert time.attrs["units"] == UNITS
     days = (original - np.datetime64("1850-01-01")) / np.timedelta64(1, "D")
     np.testing.assert_allclose(time.to_numpy(), days)
+
+
+def test_calendar_is_set(tcwv_dataset: xr.Dataset) -> None:
+    original = {
+        name: dict(tcwv_dataset[name].encoding)
+        for name in ("time", "time_bnds")
+    }
+    options = {FIX_ID: {"coordinate": "time", "calendar": "standard"}}
+
+    findings = woodpecker.check(tcwv_dataset, fixes=FIX_ID, options=options)
+    assert findings.fix_ids == (FIX_ID,)
+
+    woodpecker.apply(
+        tcwv_dataset, fixes=FIX_ID, dry_run=False, options=options
+    )
+    # Only the calendar changes, so the times keep their integer storage.
+    for name, encoding in original.items():
+        assert tcwv_dataset[name].encoding == {
+            **encoding,
+            "calendar": "standard",
+        }
+    assert not woodpecker.check(tcwv_dataset, fixes=FIX_ID, options=options)

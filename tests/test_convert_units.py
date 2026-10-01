@@ -5,6 +5,8 @@ import xarray as xr
 from pint.errors import DimensionalityError
 from woodpecker.fixes.registry import FixFunctionRegistry
 
+from woodpecker_esa_cci_plugin.remove_attributes import RANGE_ATTRIBUTES
+
 FIX_ID = "esa_cci.convert_units"
 OPTIONS = {FIX_ID: {"units": {"tcwv": "kg m-2"}}}
 
@@ -73,12 +75,13 @@ def test_units_are_converted(
     )
     assert result.changed == 1
     tcwv = tcwv_dataset["tcwv"]
-    assert tcwv.attrs.keys() == original.attrs.keys()
+    # The range attributes are only removed when the values change.
+    assert set(tcwv.attrs) == {
+        key
+        for key in original.attrs
+        if factor == 1.0 or key not in RANGE_ATTRIBUTES
+    }
     assert tcwv.attrs["units"] == "kg m-2"
-    np.testing.assert_allclose(
-        tcwv.attrs["valid_range"],
-        np.array(original.attrs["valid_range"]) * factor,
-    )
     assert tcwv.dtype == original.dtype
     assert tcwv.encoding == {"dtype": "float32"}
     np.testing.assert_allclose(tcwv, original * factor, rtol=1e-6)
@@ -114,51 +117,19 @@ def test_integer_encoding_is_removed(
     assert tcwv_dataset["tcwv"].encoding == {}
 
 
-def test_value_attributes_are_converted(tcwv_dataset: xr.Dataset) -> None:
+def test_range_attributes_are_removed(tcwv_dataset: xr.Dataset) -> None:
     tcwv_dataset["tcwv"].attrs.update(
         units="g m-2",
+        actual_range=[10.0, 60000.0],
         valid_range=np.array([0.0, 80000.0]),
         valid_min=0,
-        missing_value=-1000.0,
+        valid_max=80000,
     )
 
     woodpecker.apply(
         tcwv_dataset, fixes=FIX_ID, dry_run=False, options=OPTIONS
     )
-    attrs = tcwv_dataset["tcwv"].attrs
-    np.testing.assert_allclose(attrs["valid_range"], [0.0, 80.0])
-    assert attrs["valid_min"] == 0.0
-    assert attrs["missing_value"] == -1.0
-
-
-def test_packed_value_attributes_are_unpacked(
-    tcwv_dataset: xr.Dataset,
-) -> None:
-    # Like the ESA CCI SST data: int16 packed kelvin, where CF stores the
-    # valid range in the packed data type, but actual_range unpacked.
-    tcwv = tcwv_dataset["tcwv"]
-    tcwv.attrs.update(
-        units="kelvin",
-        valid_min=-300,
-        valid_max=4500,
-        actual_range=[270.0, 310.0],
-    )
-    tcwv.encoding = {
-        "dtype": np.dtype("int16"),
-        "scale_factor": 0.01,
-        "add_offset": 273.15,
-        "_FillValue": np.int16(-32768),
-    }
-    options = {FIX_ID: {"units": {"tcwv": "degC"}}}
-
-    woodpecker.apply(
-        tcwv_dataset, fixes=FIX_ID, dry_run=False, options=options
-    )
-    attrs = tcwv_dataset["tcwv"].attrs
-    np.testing.assert_allclose(attrs["valid_min"], -3.0)
-    np.testing.assert_allclose(attrs["valid_max"], 45.0)
-    np.testing.assert_allclose(attrs["actual_range"], [-3.15, 36.85])
-    assert tcwv_dataset["tcwv"].encoding == {}
+    assert not set(RANGE_ATTRIBUTES) & set(tcwv_dataset["tcwv"].attrs)
 
 
 def test_dimension_coordinate_and_bounds_are_converted(

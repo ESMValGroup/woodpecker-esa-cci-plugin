@@ -8,6 +8,15 @@ recipes:
       # Steps run in the order listed here. The variables are renamed last,
       # so all steps use the original variable names. Woodpecker allows each
       # fix only once per recipe.
+      # Packing and the range attributes become invalid when the values
+      # change, so remove them first. The time encoding is kept.
+      - id: esa_cci.remove_encoding
+        options:
+          keys:
+            [_FillValue, _Unsigned, add_offset, dtype, missing_value, scale_factor]
+      - id: esa_cci.remove_attributes
+        options:
+          attributes: [actual_range, valid_max, valid_min, valid_range]
       - id: esa_cci.set_attributes
         options:
           attributes:
@@ -17,9 +26,38 @@ recipes:
               cell_methods: "area: time: mean"
               # Keeps crs when selecting variables.
               grid_mapping: crs
+            time:
+              # The times are decoded to numpy datetime64, which does not
+              # count leap seconds.
+              units_metadata: "leap_seconds: none"
+            # Not valid CF standard_names.
             crs:
-              # Not a valid CF standard_name.
               standard_name: null
+            stdv:
+              standard_name: null
+            num_obs:
+              standard_name: null
+            # Bounds variables inherit the standard_name and long_name of
+            # their coordinate, and CF recommends leaving them out.
+            lat_bnds: &bounds
+              standard_name: null
+              long_name: null
+              comment: null
+            lon_bnds: *bounds
+            time_bnds: *bounds
+      - id: esa_cci.set_global_attributes
+        options:
+          rename:
+            # CF attribute names cannot contain hyphens.
+            keywords-vocabulary: keywords_vocabulary
+            naming-authority: naming_authority
+          attributes:
+            Conventions: CF-1.11
+      - id: esa_cci.set_time_units
+        options:
+          coordinate: time
+          # The preferred name of the gregorian calendar.
+          calendar: standard
       - id: esa_cci.convert_units
         options:
           units:

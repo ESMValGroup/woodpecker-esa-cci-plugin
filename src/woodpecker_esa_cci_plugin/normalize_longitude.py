@@ -2,22 +2,16 @@
 
 from __future__ import annotations
 
-import copy
 from typing import TYPE_CHECKING
 
 import numpy as np
 from woodpecker.fixes.labels import Labels
 from woodpecker.fixes.registry import FixFunction, register_fix_function
 
+from .remove_attributes import remove_range_attributes
+
 if TYPE_CHECKING:
     import xarray as xr
-
-# Valid range attributes of the wrapped longitude and bounds.
-VALID_RANGE = {
-    "valid_range": [0.0, 360.0],
-    "valid_min": 0.0,
-    "valid_max": 360.0,
-}
 
 
 @register_fix_function
@@ -26,9 +20,9 @@ class NormalizeLongitude(FixFunction):
 
     The longitude dimension coordinate is configured with the ``coordinate``
     option. Its values and bounds are wrapped to [0, 360) and all variables
-    along it are reordered, so the coordinate stays increasing. Their
-    ``valid_range``, ``valid_min`` and ``valid_max`` attributes, if present,
-    are updated to match. Unlike the core woodpecker
+    along it are reordered, so the coordinate stays increasing. The range
+    attributes of the coordinate and bounds, such as ``valid_range``, are
+    removed, because they no longer match. Unlike the core woodpecker
     ``normalize_longitude_convention`` fix, this keeps the coordinate
     monotonic. A coordinate that does not exist or is not a dimension
     coordinate raises an error.
@@ -94,14 +88,6 @@ class NormalizeLongitude(FixFunction):
         return True
 
 
-def _set_valid_range(variable: xr.Variable) -> None:
-    """Update the valid range attributes of ``variable`` to [0, 360]."""
-    # Otherwise, readers that apply the valid range mask the wrapped values.
-    for key, value in VALID_RANGE.items():
-        if key in variable.attrs:
-            variable.attrs[key] = copy.deepcopy(value)
-
-
 def _wrap(dataset: xr.Dataset, name: str) -> None:
     """Wrap longitude ``name`` in ``dataset`` to [0, 360) in place."""
     lon = dataset[name].to_numpy()
@@ -113,7 +99,7 @@ def _wrap(dataset: xr.Dataset, name: str) -> None:
     coordinate = wrapped[name].variable
     data = (coordinate.data + offset).astype(coordinate.dtype)
     coordinate = coordinate.copy(data=data)
-    _set_valid_range(coordinate)
+    remove_range_attributes(coordinate)
     dataset.coords[name] = coordinate
     bounds = dataset[name].attrs.get("bounds")
     for var in list(dataset.variables):
@@ -126,7 +112,7 @@ def _wrap(dataset: xr.Dataset, name: str) -> None:
             shift = np.expand_dims(offset, axis=1 - variable.dims.index(name))
             data = (variable.data + shift).astype(variable.dtype)
             variable = variable.copy(data=data)
-            _set_valid_range(variable)
+            remove_range_attributes(variable)
         if var in dataset.coords:
             dataset.coords[var] = variable
         else:

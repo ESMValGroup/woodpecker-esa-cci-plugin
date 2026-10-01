@@ -7,6 +7,19 @@ ESA CCI fixes and recipes for
 
 This plugin registers:
 
+- Fix `esa_cci.remove_encoding`: removes the encoding keys configured with
+  the `keys` option from all variables, except variables with decoded times,
+  whose encoding defines the units and calendar they are written in. The
+  recipes use it to remove the packing encoding (`dtype`, `scale_factor`,
+  `add_offset`, `_FillValue`, `missing_value` and `_Unsigned`), because
+  xarray keeps it when values change through `copy(data=...)` or in place,
+  and then writes values that no longer fit. The recipe output is therefore
+  not packed, unless the encoding is set again when writing.
+- Fix `esa_cci.remove_attributes`: removes the attributes configured with
+  the `attributes` option from all variables. The recipes use it to remove
+  the range attributes `actual_range`, `valid_min`, `valid_max` and
+  `valid_range`, which xarray does not use and which become invalid as soon
+  as the values change.
 - Fix `esa_cci.set_attributes`: sets attributes on variables where they are
   missing or wrong. The correct values are configured with the `attributes`
   option, a mapping from variable name to a mapping of attribute names to
@@ -24,28 +37,44 @@ This plugin registers:
   [pint](https://pint.readthedocs.io) with the
   [cf-xarray](https://cf-xarray.readthedocs.io) units registry. Unlike the
   core woodpecker `convert_units` fix, it sets the units attribute to the
-  configured string, so the result can follow the CF conventions.
+  configured string, so the result can follow the CF conventions. The range
+  attributes and packing encoding of the converted variables are removed.
 - Fix `esa_cci.normalize_longitude`: wraps the longitude dimension coordinate
   configured with the `coordinate` option, and its bounds, to [0, 360) and
-  reorders the data so the coordinate stays increasing. Their `valid_range`,
-  `valid_min` and `valid_max` attributes are updated to match. Unlike the core
+  reorders the data so the coordinate stays increasing. Their range attributes,
+  such as `valid_range`, are removed. Unlike the core
   woodpecker `normalize_longitude_convention` fix, the result is monotonic.
-- Recipe `esa_cci.water_vapour`: sets the `standard_name`, `long_name`,
-  `cell_methods` and `grid_mapping` of `tcwv`, converts it to `kg m-2`, makes
-  `crs` a CF grid mapping, selects `tcwv`, makes latitude increasing, wraps
-  longitude to [0, 360), and renames `tcwv` to `prw`. It combines the fixes above
-  with the core woodpecker fixes `rename_variables` and
-  `ensure_latitude_is_increasing`. The result passes the ESMValCore CMIP7
-  CMOR check as `atmos` variable `prw`.
-- Fix `esa_cci.set_time_units`: sets the units that the decoded time
-  coordinate configured with the `coordinate` option, and its bounds, are
-  stored in to the `units` option, e.g. `days since 1850-01-01`. The time
-  values do not change, only how they are written.
-- Recipe `esa_cci.sea_surface_temperature`: sets the `standard_name`,
-  `long_name` and `cell_methods` of `analysed_sst`, converts it to `degC`,
-  selects `analysed_sst`, wraps longitude to [0, 360), stores time in days
-  since 1850-01-01, and renames `analysed_sst` to `tos`. The result passes the ESMValCore
-  CMIP7 CMOR check as `ocean` variable `tos`.
+- Recipe `esa_cci.water_vapour`: removes the packing encoding and range
+  attributes; sets the `standard_name`, `long_name`, `cell_methods` and
+  `grid_mapping` of `tcwv` and converts it to `kg m-2`; removes invalid
+  standard names and the attributes that bounds variables inherit from their
+  coordinates; replaces hyphens in global attribute names and sets
+  `Conventions` to `CF-1.11`; stores time in the `standard` calendar and
+  marks it as not counting leap seconds; makes `crs` a CF grid mapping;
+  selects `tcwv`; makes latitude increasing; wraps longitude to [0, 360); and
+  renames `tcwv` to `prw`. It combines the fixes above with the core
+  woodpecker fixes `rename_variables` and `ensure_latitude_is_increasing`.
+  The result passes the ESMValCore CMIP7 CMOR check as `atmos` variable
+  `prw` and all CF 1.11 checks of the IOOS compliance checker.
+- Fix `esa_cci.set_time_units`: sets the units and calendar that the decoded
+  time coordinate configured with the `coordinate` option, and its bounds,
+  are stored in to the `units` option, e.g. `days since 1850-01-01`, and the
+  `calendar` option, e.g. `standard`. The time values do not change, only
+  how they are written.
+- Fix `esa_cci.set_global_attributes`: renames the global attributes
+  configured with the `rename` option, a mapping from current to new name,
+  and then sets the ones configured with the `attributes` option, a mapping
+  from attribute name to value, where they are missing or wrong. Attributes
+  set to `null` are removed.
+- Recipe `esa_cci.sea_surface_temperature`: removes the packing encoding
+  and range attributes; sets the `standard_name`, `long_name`,
+  `cell_methods` and `units_metadata` of `analysed_sst` and converts it to
+  `degC`; sets `Conventions` to `CF-1.11` and removes the empty global
+  `comment`; stores time in days since 1850-01-01 in the `standard` calendar
+  and marks it as not counting leap seconds; selects `analysed_sst`; wraps
+  longitude to [0, 360); and renames `analysed_sst` to `tos`. The result
+  passes the ESMValCore CMIP7 CMOR check as `ocean` variable `tos` and all
+  CF 1.11 checks of the IOOS compliance checker.
 
 The fixes are strict: they raise an error when a configured variable or
 attribute does not exist or an option is empty, instead of silently doing
@@ -82,9 +111,11 @@ Other environments, selected with `-e`:
   data from the ESA CCI Open Data Portal and need internet access. Select them
   with `-m integration`.
 - `esmvalcore`: includes [ESMValCore](https://github.com/ESMValGroup/ESMValCore),
-  ncdata and s3fs, and runs the integration test that checks the recipe output
-  against the CMIP7 CMOR tables. ESMValCore needs zarr 3 and xcube-cci needs
-  zarr 2, so this test opens the ESA CCI zarr store directly with s3fs.
+  ncdata, s3fs and the
+  [IOOS compliance checker](https://github.com/ioos/compliance-checker), and
+  runs the integration tests that check the recipe output against the CMIP7
+  CMOR tables and the CF conventions. ESMValCore needs zarr 3 and xcube-cci
+  needs zarr 2, so these tests open the ESA CCI zarr store directly with s3fs.
 
 Check that woodpecker picks up the plugin:
 

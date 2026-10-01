@@ -14,22 +14,25 @@ if TYPE_CHECKING:
 
 @register_fix_function
 class SetTimeUnits(FixFunction):
-    """Set the units that a decoded time coordinate is stored in.
+    """Set the units and calendar that a decoded time coordinate is stored in.
 
-    The time coordinate is configured with the ``coordinate`` option and the
-    units with the ``units`` option, e.g. ``days since 1850-01-01``. Xarray
-    keeps these units in the encoding of decoded times, so this changes how
-    the times are written, not their values. The coordinate bounds get the
-    same units. Integer storage is replaced by float64, because times may
-    not be whole numbers of the new units. A coordinate that does not exist
-    or is not decoded to dates raises an error.
+    The time coordinate is configured with the ``coordinate`` option, the
+    units with the ``units`` option, e.g. ``days since 1850-01-01``, and the
+    calendar with the ``calendar`` option, e.g. ``standard``. At least one
+    of ``units`` and ``calendar`` must be set. Xarray keeps the units and
+    calendar in the encoding of decoded times, so this changes how the times
+    are written, not their values. The coordinate bounds get the same units
+    and calendar. When the units change, integer storage is replaced by
+    float64, because times may not be whole numbers of the new units. A
+    coordinate that does not exist or is not decoded to dates raises an
+    error.
     """
 
     suffix = "set_time_units"
     name = "Set time units"
     description = (
-        "Sets the units that the configured time coordinate and its bounds "
-        "are stored in."
+        "Sets the units and calendar that the configured time coordinate and "
+        "its bounds are stored in."
     )
     categories = ["metadata", "units"]  # noqa: RUF012
     priority = 50
@@ -45,14 +48,21 @@ class SetTimeUnits(FixFunction):
             raise TypeError(msg)
         return value
 
-    def _wrong(self, dataset: xr.Dataset) -> tuple[str, str] | None:
-        """Return the coordinate and units if they need to be set."""
+    def _wrong(self, dataset: xr.Dataset) -> tuple[str, dict[str, str]] | None:
+        """Return the coordinate and the encoding that needs to be set."""
         name = self._option("coordinate")
-        units = self._option("units")
-        if name is None and units is None:
+        wanted = {
+            key: value
+            for key in ("units", "calendar")
+            if (value := self._option(key)) is not None
+        }
+        if name is None and not wanted:
             return None
-        if name is None or units is None:
-            msg = "The coordinate and units options must both be set"
+        if name is None or not wanted:
+            msg = (
+                "The coordinate option and the units or calendar option must "
+                "be set"
+            )
             raise ValueError(msg)
         if name not in dataset.variables:
             msg = f"Unable to set the units of {name}: it does not exist"
@@ -60,9 +70,14 @@ class SetTimeUnits(FixFunction):
         if not np.issubdtype(dataset[name].dtype, np.datetime64):
             msg = f"Unable to set the units of {name}: it is not decoded"
             raise ValueError(msg)
-        if dataset[name].encoding.get("units") == units:
-            return None
-        return name, units
+        encoding = dataset[name].encoding
+        if changes := {
+            key: value
+            for key, value in wanted.items()
+            if encoding.get(key) != value
+        }:
+            return name, changes
+        return None
 
     def matches(self, dataset: xr.Dataset) -> bool:
         """Return whether the fix applies to ``dataset``."""
@@ -72,9 +87,13 @@ class SetTimeUnits(FixFunction):
         """Return a finding message for each detected problem."""
         if (found := self._wrong(dataset)) is None:
             return []
-        name, units = found
-        current = dataset[name].encoding.get("units")
-        return [f"{name} is stored in units {current!r}, expected {units!r}"]
+        name, changes = found
+        encoding = dataset[name].encoding
+        return [
+            f"{name} is stored with {key} {encoding.get(key)!r}, "
+            f"expected {value!r}"
+            for key, value in changes.items()
+        ]
 
     def apply(
         self,
@@ -85,13 +104,14 @@ class SetTimeUnits(FixFunction):
         if (found := self._wrong(dataset)) is None:
             return False
         if not dry_run:
-            name, units = found
+            name, changes = found
             names = [name]
             bounds = dataset[name].attrs.get("bounds")
             if isinstance(bounds, str) and bounds in dataset.variables:
                 names.append(bounds)
             for var in names:
                 encoding = dataset[var].encoding
-                encoding["units"] = units
-                encoding["dtype"] = np.dtype("float64")
+                encoding.update(changes)
+                if "units" in changes:
+                    encoding["dtype"] = np.dtype("float64")
         return True

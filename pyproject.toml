@@ -61,6 +61,7 @@ iris = "*"
 esmvalcore = ">=2.15"
 ncdata = "*"
 s3fs = "*"
+compliance-checker = "*"
 
 # Lowest and most recent supported Python version.
 [tool.pixi.feature.py311.dependencies]

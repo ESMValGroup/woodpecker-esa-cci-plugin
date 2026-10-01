@@ -3,7 +3,17 @@ import pytest
 import woodpecker
 import xarray as xr
 
+from woodpecker_esa_cci_plugin.remove_attributes import RANGE_ATTRIBUTES
+
 RECIPE_ID = "esa_cci.water_vapour"
+PACKING_KEYS = (
+    "_FillValue",
+    "_Unsigned",
+    "add_offset",
+    "dtype",
+    "missing_value",
+    "scale_factor",
+)
 
 
 @pytest.mark.parametrize(
@@ -30,6 +40,10 @@ def test_recipe_fixes_dataset(tcwv_dataset: xr.Dataset) -> None:
         "woodpecker.rename_variables",
         "woodpecker.ensure_latitude_is_increasing",
         "esa_cci.normalize_longitude",
+        "esa_cci.remove_attributes",
+        "esa_cci.remove_encoding",
+        "esa_cci.set_global_attributes",
+        "esa_cci.set_time_units",
     }
 
     woodpecker.recipe.apply(tcwv_dataset, recipe, dry_run=False)
@@ -62,7 +76,17 @@ def test_recipe_fixes_dataset(tcwv_dataset: xr.Dataset) -> None:
         "cell_methods": "area: time: mean",
         "grid_mapping": "crs",
     }
-    np.testing.assert_allclose(prw_attrs["valid_range"], [0.0, 0.07])
+    for name in ("stdv", "num_obs"):
+        assert "standard_name" not in tcwv_dataset[name].attrs
+    assert tcwv_dataset["time"].attrs["units_metadata"] == "leap_seconds: none"
+
+    # CF does not allow hyphens in attribute names.
+    attrs = tcwv_dataset.attrs
+    assert attrs["Conventions"] == "CF-1.11"
+    assert not [key for key in attrs if "-" in key]
+    assert (
+        attrs["keywords_vocabulary"] == (original.attrs["keywords-vocabulary"])
+    )
     crs_attrs = tcwv_dataset["crs"].attrs
     assert "standard_name" not in crs_attrs
     assert "wkt" not in crs_attrs
@@ -84,5 +108,20 @@ def test_recipe_fixes_dataset(tcwv_dataset: xr.Dataset) -> None:
     np.testing.assert_allclose(
         tcwv_dataset["lon_bnds"][:, 0], np.arange(0.0, 360.0, 45.0)
     )
-    for name in ("lon", "lon_bnds"):
-        assert tcwv_dataset[name].attrs["valid_range"] == [0.0, 360.0]
+
+    # The bounds variables inherit their attributes from the coordinates.
+    for name in ("lat_bnds", "lon_bnds", "time_bnds"):
+        attrs = tcwv_dataset[name].attrs
+        for key in ("standard_name", "long_name", "comment"):
+            assert key not in attrs
+
+    # Range attributes and packing are removed, but the time encoding stays.
+    for var, variable in tcwv_dataset.variables.items():
+        assert not set(RANGE_ATTRIBUTES) & set(variable.attrs)
+        if var in ("time", "time_bnds"):
+            assert variable.encoding == {
+                **original[var].encoding,
+                "calendar": "standard",
+            }
+        else:
+            assert not set(PACKING_KEYS) & set(variable.encoding)
