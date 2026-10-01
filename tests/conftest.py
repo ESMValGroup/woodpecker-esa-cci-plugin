@@ -1,16 +1,10 @@
 import pytest
 import xarray as xr
-from woodpecker.testing import make_cmip7
+
+from .synthetic_data import make_tcwv_dataset
 
 
 @pytest.fixture
 def tcwv_dataset() -> xr.Dataset:
-    """Return a small ESA CCI-like water vapour dataset without problems."""
-    dataset: xr.Dataset = make_cmip7(
-        variable="prw",
-        rename_vars={"prw": "tcwv"},
-    )
-    dataset["tcwv"].attrs["standard_name"] = (
-        "atmosphere_mass_content_of_water_vapor"
-    )
-    return dataset
+    """Return a small ESA CCI water vapour dataset as loaded with xcube."""
+    return make_tcwv_dataset()

@@ -1,9 +1,9 @@
 recipes:
-  - id: esa_cci.water_vapour
-    description: Prepare ESA CCI water vapour (TCWV) datasets
+  - id: esa_cci.sea_surface_temperature
+    description: Prepare ESA CCI sea surface temperature (SST) datasets
     match:
       path_patterns:
-        - "*ESACCI-WATERVAPOUR-*"
+        - "*ESACCI-*-SST-*"
     steps:
       # Steps run in the order listed here. The variables are renamed last,
       # so all steps use the original variable names. Woodpecker allows each
@@ -20,60 +20,39 @@ recipes:
       - id: esa_cci.set_attributes
         options:
           attributes:
-            tcwv:
-              standard_name: atmosphere_mass_content_of_water_vapor
-              long_name: Water Vapor Path
-              cell_methods: "area: time: mean"
-              # Keeps crs when selecting variables.
-              grid_mapping: crs
+            analysed_sst:
+              standard_name: sea_surface_temperature
+              long_name: Sea Surface Temperature
+              cell_methods: "area: mean where sea time: mean"
+              # The temperature is not a temperature difference.
+              units_metadata: "temperature: on_scale"
             time:
               # The times are decoded to numpy datetime64, which does not
               # count leap seconds.
               units_metadata: "leap_seconds: none"
-            # Not valid CF standard_names.
-            crs:
-              standard_name: null
-            stdv:
-              standard_name: null
-            num_obs:
-              standard_name: null
-            # Bounds variables inherit the standard_name and long_name of
-            # their coordinate, and CF recommends leaving them out.
-            lat_bnds: &bounds
-              standard_name: null
-              long_name: null
-              comment: null
-            lon_bnds: *bounds
-            time_bnds: *bounds
       - id: esa_cci.set_global_attributes
         options:
-          rename:
-            # CF attribute names cannot contain hyphens.
-            keywords-vocabulary: keywords_vocabulary
-            naming-authority: naming_authority
           attributes:
             Conventions: CF-1.11
-      - id: esa_cci.set_time_units
-        options:
-          coordinate: time
-          # The preferred name of the gregorian calendar.
-          calendar: standard
+            # Empty.
+            comment: null
       - id: esa_cci.convert_units
         options:
           units:
-            tcwv: kg m-2
-      - id: esa_cci.grid_mapping_from_wkt
+            analysed_sst: degC
+      - id: esa_cci.set_time_units
         options:
-          variable: crs
-          wkt_attribute: wkt
-      - id: woodpecker.ensure_latitude_is_increasing
+          coordinate: time
+          units: days since 1850-01-01
+          # The preferred name of the gregorian calendar.
+          calendar: standard
       - id: esa_cci.normalize_longitude
         options:
           coordinate: lon
       - id: esa_cci.select_variables
         options:
-          variables: [tcwv]
+          variables: [analysed_sst]
       - id: woodpecker.rename_variables
         options:
           mapping:
-            prw: [tcwv]
+            tos: [analysed_sst]

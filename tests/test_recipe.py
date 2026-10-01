@@ -1,28 +1,127 @@
+import numpy as np
+import pytest
 import woodpecker
 import xarray as xr
 
+from woodpecker_esa_cci_plugin.remove_attributes import RANGE_ATTRIBUTES
+
 RECIPE_ID = "esa_cci.water_vapour"
+PACKING_KEYS = (
+    "_FillValue",
+    "_Unsigned",
+    "add_offset",
+    "dtype",
+    "missing_value",
+    "scale_factor",
+)
 
 
-def test_recipe_is_discovered_from_package() -> None:
-    recipe = woodpecker.recipe.get(RECIPE_ID)
+@pytest.mark.parametrize(
+    "recipe_id",
+    [RECIPE_ID, "esa_cci.sea_surface_temperature"],
+)
+def test_recipe_is_discovered_from_package(recipe_id: str) -> None:
+    recipe = woodpecker.recipe.get(recipe_id)
 
-    assert recipe.id == RECIPE_ID
+    assert recipe.id == recipe_id
 
 
 def test_recipe_fixes_dataset(tcwv_dataset: xr.Dataset) -> None:
     recipe = woodpecker.recipe.get(RECIPE_ID)
-    dataset = tcwv_dataset.isel(lat=slice(None, None, -1))
-    del dataset["tcwv"].attrs["standard_name"]
+    tcwv_dataset["tcwv"].attrs["units"] = "g m-2"
+    original = tcwv_dataset.copy(deep=True)
 
-    findings = woodpecker.recipe.check(dataset, recipe)
+    findings = woodpecker.recipe.check(tcwv_dataset, recipe)
     assert set(findings.fix_ids) == {
-        "esa_cci.add_tcwv_standard_name",
+        "esa_cci.grid_mapping_from_wkt",
+        "esa_cci.select_variables",
+        "esa_cci.set_attributes",
+        "esa_cci.convert_units",
+        "woodpecker.rename_variables",
         "woodpecker.ensure_latitude_is_increasing",
+        "esa_cci.normalize_longitude",
+        "esa_cci.remove_attributes",
+        "esa_cci.remove_encoding",
+        "esa_cci.set_global_attributes",
+        "esa_cci.set_time_units",
     }
 
-    woodpecker.recipe.apply(dataset, recipe, dry_run=False)
+    woodpecker.recipe.apply(tcwv_dataset, recipe, dry_run=False)
 
-    assert "standard_name" in dataset["tcwv"].attrs
-    assert (dataset["lat"].diff("lat") > 0).all()
-    assert not woodpecker.recipe.check(dataset, recipe)
+    assert set(tcwv_dataset.data_vars) == {
+        "prw",
+        "stdv",
+        "num_obs",
+        "crs",
+        "lat_bnds",
+        "lon_bnds",
+        "time_bnds",
+    }
+    # The real dataset is too large to load, so the data must stay lazy.
+    assert tcwv_dataset["prw"].chunks is not None
+    prw_attrs = tcwv_dataset["prw"].attrs
+    assert {
+        key: prw_attrs[key]
+        for key in (
+            "standard_name",
+            "long_name",
+            "units",
+            "cell_methods",
+            "grid_mapping",
+        )
+    } == {
+        "standard_name": "atmosphere_mass_content_of_water_vapor",
+        "long_name": "Water Vapor Path",
+        "units": "kg m-2",
+        "cell_methods": "area: time: mean",
+        "grid_mapping": "crs",
+    }
+    for name in ("stdv", "num_obs"):
+        assert "standard_name" not in tcwv_dataset[name].attrs
+    assert tcwv_dataset["time"].attrs["units_metadata"] == "leap_seconds: none"
+
+    # CF does not allow hyphens in attribute names.
+    attrs = tcwv_dataset.attrs
+    assert attrs["Conventions"] == "CF-1.11"
+    assert not [key for key in attrs if "-" in key]
+    assert (
+        attrs["keywords_vocabulary"] == (original.attrs["keywords-vocabulary"])
+    )
+    crs_attrs = tcwv_dataset["crs"].attrs
+    assert "standard_name" not in crs_attrs
+    assert "wkt" not in crs_attrs
+    assert crs_attrs["grid_mapping_name"] == "latitude_longitude"
+
+    # Latitude is increasing and longitude is in the range [0, 360).
+    expected = (
+        original["tcwv"]
+        .isel(lat=slice(None, None, -1))
+        .roll(lon=original.sizes["lon"] // 2)
+    )
+    np.testing.assert_allclose(tcwv_dataset["prw"], expected * 1e-3)
+    np.testing.assert_allclose(
+        tcwv_dataset["lat"], original["lat"].to_numpy()[::-1]
+    )
+    np.testing.assert_allclose(
+        tcwv_dataset["lon"], np.arange(22.5, 360.0, 45.0)
+    )
+    np.testing.assert_allclose(
+        tcwv_dataset["lon_bnds"][:, 0], np.arange(0.0, 360.0, 45.0)
+    )
+
+    # The bounds variables inherit their attributes from the coordinates.
+    for name in ("lat_bnds", "lon_bnds", "time_bnds"):
+        attrs = tcwv_dataset[name].attrs
+        for key in ("standard_name", "long_name", "comment"):
+            assert key not in attrs
+
+    # Range attributes and packing are removed, but the time encoding stays.
+    for var, variable in tcwv_dataset.variables.items():
+        assert not set(RANGE_ATTRIBUTES) & set(variable.attrs)
+        if var in ("time", "time_bnds"):
+            assert variable.encoding == {
+                **original[var].encoding,
+                "calendar": "standard",
+            }
+        else:
+            assert not set(PACKING_KEYS) & set(variable.encoding)

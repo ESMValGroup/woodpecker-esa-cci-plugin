@@ -3,6 +3,7 @@ repos:
     rev: v6.0.0
     hooks:
       - id: check-added-large-files
+        exclude: ^pixi\.lock$
       - id: check-case-conflict
       - id: check-merge-conflict
       - id: check-toml
@@ -17,16 +18,18 @@ repos:
       - id: ruff-check
         args: [--fix]
       - id: ruff-format
-  - repo: https://github.com/astral-sh/uv-pre-commit
-    rev: 0.12.19
-    hooks:
-      - id: uv-lock
   - repo: local
     hooks:
+      - id: pixi-lock
+        name: pixi lock
+        entry: pixi lock
+        language: system
+        files: ^(pyproject\.toml|pixi\.lock)$
+        pass_filenames: false
       # Runs in the project environment so mypy can see woodpecker and xarray.
       - id: mypy
         name: mypy
-        entry: uv run --frozen mypy
+        entry: pixi run --frozen mypy
         language: system
         types_or: [python, pyi]
         pass_filenames: false

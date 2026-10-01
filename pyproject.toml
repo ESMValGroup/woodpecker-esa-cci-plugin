@@ -5,12 +5,15 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "woodpecker-esa-cci-plugin"
 dynamic = ["version"]
-description = "Woodpecker plugin providing ESA CCI dataset fixes and recipes"
+description = "Woodpecker plugin for formatting ESA-CCI data according to CMIP7 standards"
 readme = "README.md"
 license = "Apache-2.0"
 license-files = ["LICENSE"]
 requires-python = ">=3.11"
 dependencies = [
+  "cf-xarray",
+  "pint",
+  "pyproj",
   "roocs-woodpecker>=0.7,<0.8",
   "xarray>=2024.1.0",
 ]
@@ -18,13 +21,61 @@ dependencies = [
 [project.entry-points."woodpecker.plugins"]
 esa_cci = "woodpecker_esa_cci_plugin"
 
-[dependency-groups]
-dev = [
-  "mypy",
-  "pre-commit",
-  "pytest>=8",
-  "ruff",
-]
+[tool.pixi.workspace]
+channels = ["conda-forge"]
+platforms = ["linux-64", "osx-arm64", "win-64"]
+
+[tool.pixi.dependencies]
+python = ">=3.11"
+cf_xarray = "*"
+pint = "*"
+pyproj = "*"
+roocs-woodpecker = ">=0.7,<0.8"
+xarray = ">=2024.1.0"
+
+[tool.pixi.pypi-dependencies]
+woodpecker-esa-cci-plugin = { path = ".", editable = true }
+
+[tool.pixi.feature.dev.dependencies]
+dask = "*"
+mypy = "*"
+pip = "*"
+pre-commit = "*"
+pytest = ">=8"
+pytest-cov = "*"
+ruff = "*"
+
+[tool.pixi.feature.dev.tasks]
+test = "pytest"
+lint = "pre-commit run --all-files"
+
+[tool.pixi.feature.xcube.dependencies]
+xcube = ">=1.13"
+xcube-cci = ">=0.14"
+ncdata = "*"
+iris = "*"
+
+# ESMValCore requires zarr>3, while xcube-cci requires zarr<3, so this is a
+# separate environment that opens the ESA CCI zarr store directly with s3fs.
+[tool.pixi.feature.esmvalcore.dependencies]
+esmvalcore = ">=2.15"
+ncdata = "*"
+s3fs = "*"
+compliance-checker = "*"
+
+# Lowest and most recent supported Python version.
+[tool.pixi.feature.py311.dependencies]
+python = "3.11.*"
+
+[tool.pixi.feature.py314.dependencies]
+python = "3.14.*"
+
+[tool.pixi.environments]
+default = ["dev"]
+xcube = ["dev", "xcube"]
+esmvalcore = ["dev", "esmvalcore"]
+py311 = ["dev", "py311"]
+py314 = ["dev", "py314"]
 
 [tool.setuptools.packages.find]
 where = ["src"]
@@ -38,11 +89,17 @@ fallback_version = "0.0.0"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-addopts = "-ra --strict-markers"
+addopts = "-ra --strict-markers --cov --cov-report=term-missing --cov-report=xml"
+markers = [
+  "integration: tests that download data from the ESA CCI Open Data Portal",
+]
+
+[tool.coverage.run]
+source = ["woodpecker_esa_cci_plugin"]
+branch = true
 
 [tool.ruff]
 line-length = 79
-target-version = "py311"
 
 [tool.ruff.lint]
 select = ["ALL"]
@@ -58,7 +115,6 @@ convention = "numpy"
 [tool.ruff.lint.per-file-ignores]
 "tests/**" = [
   "D",       # no docstrings required in tests
-  "INP001",  # tests are not a package
   "PLR2004", # magic values are fine in assertions
   "S101",    # pytest uses assert
 ]
@@ -66,10 +122,8 @@ convention = "numpy"
 [tool.mypy]
 strict = true
 files = ["src", "tests"]
-# FixFunction resolves to Any because woodpecker has no py.typed marker yet.
-disallow_subclassing_any = false
 
 [[tool.mypy.overrides]]
 # Remove once woodpecker ships a py.typed marker.
 module = ["woodpecker", "woodpecker.*"]
-ignore_missing_imports = true
+follow_untyped_imports = true
