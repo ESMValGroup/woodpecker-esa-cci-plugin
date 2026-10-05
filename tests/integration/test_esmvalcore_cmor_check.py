@@ -18,8 +18,6 @@ s3fs = pytest.importorskip("s3fs")
 iris_xarray = pytest.importorskip("ncdata.iris_xarray")
 iris = pytest.importorskip("iris")
 
-pytestmark = pytest.mark.integration
-
 
 def test_all_datasets_are_checked() -> None:
     fs = s3fs.S3FileSystem(**STORAGE_OPTIONS)

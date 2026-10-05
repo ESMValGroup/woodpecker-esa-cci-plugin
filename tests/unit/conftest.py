@@ -1,7 +1,7 @@
 import pytest
 import xarray as xr
 
-from .synthetic_data import make_tcwv_dataset
+from .synthetic_esa_cci_data import make_tcwv_dataset
 
 
 @pytest.fixture

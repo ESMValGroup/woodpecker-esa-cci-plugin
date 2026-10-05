@@ -9,7 +9,8 @@ from pydantic import Field
 from woodpecker.fixes.labels import Labels
 from woodpecker.fixes.registry import register_fix_function
 
-from ._options import ConfigurableFix, Options
+from woodpecker_esa_cci_plugin.configurable_fix import ConfigurableFix, Options
+
 from .set_attributes import _equal
 
 if TYPE_CHECKING:

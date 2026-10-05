@@ -736,7 +736,7 @@ environments:
       - conda: https://conda.anaconda.org/conda-forge/win-64/zlib-ng-2.3.3-h0261ad2_1.conda
       - conda: https://conda.anaconda.org/conda-forge/win-64/zstd-1.5.7-h534d264_7.conda
       - pypi: ./
-  esmvalcore:
+  online:
     channels:
     - url: https://conda.anaconda.org/conda-forge/
     indexes:

@@ -59,9 +59,11 @@ xcube-cci = ">=0.14"
 ncdata = "*"
 iris = "*"
 
-# ESMValCore requires zarr>3, while xcube-cci requires zarr<3, so this is a
-# separate environment that opens the ESA CCI zarr store directly with s3fs.
-[tool.pixi.feature.esmvalcore.dependencies]
+# Dependencies of the tests that download data from the ESA CCI Open Data
+# Portal. ESMValCore requires zarr>3, while xcube-cci requires zarr<3, so this
+# is a separate environment that opens the ESA CCI zarr store directly with
+# s3fs.
+[tool.pixi.feature.online.dependencies]
 esmvalcore = ">=2.15"
 ncdata = "*"
 s3fs = "*"
@@ -77,7 +79,7 @@ python = "3.14.*"
 [tool.pixi.environments]
 default = ["dev"]
 xcube = ["dev", "xcube"]
-esmvalcore = ["dev", "esmvalcore"]
+online = ["dev", "online"]
 py311 = ["dev", "py311"]
 py314 = ["dev", "py314"]
 
@@ -94,9 +96,6 @@ fallback_version = "0.0.0"
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-ra --strict-markers --cov --cov-report=term-missing --cov-report=xml"
-markers = [
-  "integration: tests that download data from the ESA CCI Open Data Portal",
-]
 
 [tool.coverage.run]
 source = ["woodpecker_esa_cci_plugin"]

@@ -7,7 +7,11 @@ from typing import TYPE_CHECKING
 from woodpecker.fixes.labels import Labels
 from woodpecker.fixes.registry import register_fix_function
 
-from ._options import ConfigurableFix, NonEmptyNames, Options
+from woodpecker_esa_cci_plugin.configurable_fix import (
+    ConfigurableFix,
+    NonEmptyNames,
+    Options,
+)
 
 if TYPE_CHECKING:
     from collections.abc import Hashable

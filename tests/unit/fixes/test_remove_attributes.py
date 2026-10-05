@@ -3,7 +3,7 @@ import woodpecker
 import xarray as xr
 from woodpecker.fixes.registry import FixFunctionRegistry
 
-from woodpecker_esa_cci_plugin.remove_attributes import RANGE_ATTRIBUTES
+from woodpecker_esa_cci_plugin.fixes.remove_attributes import RANGE_ATTRIBUTES
 
 FIX_ID = "esa_cci.remove_attributes"
 OPTIONS = {FIX_ID: {"attributes": list(RANGE_ATTRIBUTES)}}

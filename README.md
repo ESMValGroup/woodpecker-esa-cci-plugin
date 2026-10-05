@@ -85,6 +85,8 @@ nothing. A fix without any options does nothing.
 - The `woodpecker.plugins` entry point in `pyproject.toml` points at the
   `woodpecker_esa_cci_plugin` package. Woodpecker imports it at startup, and
   the `@register_fix_function` decorator registers each fix.
+- Each fix is a module in `src/woodpecker_esa_cci_plugin/fixes/`, and its
+  tests are in `tests/unit/fixes/`.
 - Fix ids get their prefix from the package name:
   `woodpecker_esa_cci_plugin` becomes `esa_cci`.
 - Recipes in `src/woodpecker_esa_cci_plugin/recipes/*.yaml` are discovered
@@ -107,14 +109,17 @@ Other environments, selected with `-e`:
 - `py311`, `py314`: lowest and most recent supported Python version.
 - `xcube`: includes [xcube](https://github.com/xcube-dev/xcube), its
   [ESA CCI plugin](https://github.com/esa-cci/xcube-cci), ncdata and iris, e.g.
-  `pixi run -e xcube test`. This also runs the integration tests, which load
-  data from the ESA CCI Open Data Portal and need internet access. Select them
-  with `-m integration`.
-- `esmvalcore`: includes [ESMValCore](https://github.com/ESMValGroup/ESMValCore),
+  `pixi run -e xcube test`. This also runs the integration tests in
+  `tests/integration`, which load data from the ESA CCI Open Data Portal and
+  need internet access. Run only those with
+  `pixi run -e xcube test tests/integration`, or only the unit tests with
+  `pixi run test tests/unit`.
+- `online`: includes [ESMValCore](https://github.com/ESMValGroup/ESMValCore),
   ncdata, s3fs and the
   [IOOS compliance checker](https://github.com/ioos/compliance-checker), and
   runs the integration tests that check the recipe output against the CMIP7
-  CMOR tables and the CF conventions. ESMValCore needs zarr 3 and xcube-cci
+  CMOR tables and the CF conventions, and that it loads with iris. These tests
+  need internet access. ESMValCore needs zarr 3 and xcube-cci
   needs zarr 2, so these tests open the ESA CCI zarr store directly with s3fs.
 
 Check that woodpecker picks up the plugin:

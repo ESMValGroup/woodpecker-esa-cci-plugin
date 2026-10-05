@@ -7,8 +7,7 @@ from .esa_cci_data import CASES, Case, open_fixed_dataset
 pytest.importorskip("s3fs")
 netcdf4 = pytest.importorskip("netCDF4")
 suite = pytest.importorskip("compliance_checker.suite")
-
-pytestmark = pytest.mark.integration
+cf = pytest.importorskip("compliance_checker.cf.cf")
 
 CHECKER = "cf:1.11"
 
@@ -33,7 +32,8 @@ def test_complies_with_cf_conventions(case: Case, tmp_path: Path) -> None:
     subset.to_netcdf(path)
 
     check_suite = suite.CheckSuite()
-    check_suite.load_all_available_checkers()
+    # Only load the CF checker, the other checkers include deprecated ones.
+    check_suite.checkers = {CHECKER: cf.CF1_11Check}
     with netcdf4.Dataset(path) as ds:
         results = check_suite.run_all(ds, [CHECKER])
     groups, exceptions = results[CHECKER]

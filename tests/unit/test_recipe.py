@@ -7,7 +7,7 @@ import xarray as xr
 import yaml
 from woodpecker.fixes.registry import FixFunctionRegistry
 
-from woodpecker_esa_cci_plugin.remove_attributes import RANGE_ATTRIBUTES
+from woodpecker_esa_cci_plugin.fixes.remove_attributes import RANGE_ATTRIBUTES
 
 RECIPE_ID = "esa_cci.water_vapour"
 # The ids of all recipes shipped with the plugin.

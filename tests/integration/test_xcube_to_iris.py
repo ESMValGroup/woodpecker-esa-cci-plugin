@@ -8,8 +8,6 @@ xcube_store = pytest.importorskip("xcube.core.store")
 iris_xarray = pytest.importorskip("ncdata.iris_xarray")
 iris = pytest.importorskip("iris")
 
-pytestmark = pytest.mark.integration
-
 DATA_ID = "ESACCI-WATERVAPOUR-L3C-TCWV-meris-005deg-2002-2017-fv3.2.zarr"
 RECIPE_ID = "esa_cci.water_vapour"
 
