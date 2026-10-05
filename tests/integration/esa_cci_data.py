@@ -19,9 +19,9 @@ class Case(NamedTuple):
     data_id: str
     recipe_id: str
     standard_name: str
-    mip: str
-    short_name: str
-    branding_suffix: str
+    realm: str
+    variable_id: str
+    variable_branding_suffix: str
     frequency: str
 
 

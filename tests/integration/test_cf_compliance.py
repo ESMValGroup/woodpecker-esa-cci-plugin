@@ -12,7 +12,7 @@ cf = pytest.importorskip("compliance_checker.cf.cf")
 CHECKER = "cf:1.11"
 
 
-@pytest.mark.parametrize("case", CASES, ids=[c.short_name for c in CASES])
+@pytest.mark.parametrize("case", CASES, ids=[c.variable_id for c in CASES])
 def test_complies_with_cf_conventions(case: Case, tmp_path: Path) -> None:
     dataset = open_fixed_dataset(case)
     # The compliance checker only reads netCDF files, so write a small part
@@ -28,7 +28,7 @@ def test_complies_with_cf_conventions(case: Case, tmp_path: Path) -> None:
         for var in (name, subset[name].attrs.get("bounds")):
             if var in subset.variables:
                 subset[var].encoding["_FillValue"] = None
-    path = tmp_path / f"{case.short_name}.nc"
+    path = tmp_path / f"{case.variable_id}.nc"
     subset.to_netcdf(path)
 
     check_suite = suite.CheckSuite()

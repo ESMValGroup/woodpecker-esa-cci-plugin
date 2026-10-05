@@ -9,7 +9,7 @@ iris_xarray = pytest.importorskip("ncdata.iris_xarray")
 iris = pytest.importorskip("iris")
 
 
-@pytest.mark.parametrize("case", CASES, ids=[c.short_name for c in CASES])
+@pytest.mark.parametrize("case", CASES, ids=[c.variable_id for c in CASES])
 def test_loads_with_iris_without_warnings(case: Case) -> None:
     dataset = open_fixed_dataset(case)
 
@@ -24,5 +24,5 @@ def test_loads_with_iris_without_warnings(case: Case) -> None:
 
     assert len(cubes) == 1
     for cube in cubes:
-        assert cube.var_name == case.short_name
+        assert cube.var_name == case.variable_id
         assert cube.standard_name == case.standard_name

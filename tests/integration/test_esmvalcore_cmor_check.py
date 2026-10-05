@@ -26,7 +26,7 @@ def test_all_datasets_are_checked() -> None:
     assert sorted(expected) == sorted(case.data_id for case in CASES)
 
 
-@pytest.mark.parametrize("case", CASES, ids=[c.short_name for c in CASES])
+@pytest.mark.parametrize("case", CASES, ids=[c.variable_id for c in CASES])
 def test_passes_cmip7_cmor_check(case: Case) -> None:
     dataset = open_fixed_dataset(case)
 
@@ -41,8 +41,8 @@ def test_passes_cmip7_cmor_check(case: Case) -> None:
     esmvalcore_check.cmor_check(
         cube,
         cmor_table="CMIP7",
-        mip=case.mip,
-        short_name=case.short_name,
-        branding_suffix=case.branding_suffix,
+        mip=case.realm,
+        short_name=case.variable_id,
+        branding_suffix=case.variable_branding_suffix,
         frequency=case.frequency,
     )
