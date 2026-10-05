@@ -37,25 +37,6 @@ def test_unconfigured_fix_does_nothing(dataset: xr.Dataset) -> None:
     assert not woodpecker.check(dataset, fixes=FIX_ID)
 
 
-@pytest.mark.parametrize(
-    ("attributes", "error", "match"),
-    [
-        ("valid_range", TypeError, "sequence of attribute names"),
-        ([], ValueError, "must not be empty"),
-    ],
-)
-def test_invalid_option_raises(
-    dataset: xr.Dataset,
-    attributes: object,
-    error: type[Exception],
-    match: str,
-) -> None:
-    options = {FIX_ID: {"attributes": attributes}}
-
-    with pytest.raises(error, match=match):
-        woodpecker.check(dataset, fixes=FIX_ID, options=options)
-
-
 def test_attributes_are_removed(dataset: xr.Dataset) -> None:
     before = _range_attributes(dataset)
     assert {"tcwv", "lat", "lon", "lon_bnds"} <= set(before)

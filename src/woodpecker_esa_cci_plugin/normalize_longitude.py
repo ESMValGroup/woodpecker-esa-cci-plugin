@@ -6,16 +6,23 @@ from typing import TYPE_CHECKING
 
 import numpy as np
 from woodpecker.fixes.labels import Labels
-from woodpecker.fixes.registry import FixFunction, register_fix_function
+from woodpecker.fixes.registry import register_fix_function
 
+from ._options import ConfigurableFix, Options
 from .remove_attributes import remove_range_attributes
 
 if TYPE_CHECKING:
     import xarray as xr
 
 
+class NormalizeLongitudeOptions(Options):
+    """Options of :class:`NormalizeLongitude`."""
+
+    coordinate: str | None = None
+
+
 @register_fix_function
-class NormalizeLongitude(FixFunction):
+class NormalizeLongitude(ConfigurableFix[NormalizeLongitudeOptions]):
     """Wrap a longitude coordinate to the range [0, 360).
 
     The longitude dimension coordinate is configured with the ``coordinate``
@@ -38,14 +45,12 @@ class NormalizeLongitude(FixFunction):
     priority = 50
     dataset = "ESA-CCI"
     labels = [Labels.RISK_COORDINATE_TRANSFORMATION]  # noqa: RUF012
+    options_model = NormalizeLongitudeOptions
 
     def _coordinate(self, dataset: xr.Dataset) -> str | None:
-        name = self.config.get("coordinate")
+        name = self.options.coordinate
         if name is None:
             return None
-        if not isinstance(name, str):
-            msg = "The coordinate option must be a string"
-            raise TypeError(msg)
         if name not in dataset.variables:
             msg = f"Unable to normalize {name}: it does not exist"
             raise ValueError(msg)

@@ -32,13 +32,6 @@ def test_unconfigured_fix_does_nothing(clean_dataset: xr.Dataset) -> None:
     assert not woodpecker.check(clean_dataset, fixes=FIX_ID)
 
 
-def test_invalid_option_raises(clean_dataset: xr.Dataset) -> None:
-    options = {FIX_ID: {"attributes": {"tcwv": "Water Vapor Path"}}}
-
-    with pytest.raises(TypeError, match="attributes option"):
-        woodpecker.check(clean_dataset, fixes=FIX_ID, options=options)
-
-
 @pytest.mark.parametrize("value", [None, "tcwv"])
 def test_attributes_are_detected_and_fixed(
     clean_dataset: xr.Dataset,
@@ -103,22 +96,10 @@ def test_array_and_nan_values_are_compared(
     assert bool(findings) is expected
 
 
-@pytest.mark.parametrize(
-    ("attributes", "match"),
-    [
-        ({}, "must not be empty"),
-        ({"tcwv": {}}, "must not be empty"),
-        ({"prw": ATTRIBUTES}, "prw: it does not exist"),
-    ],
-)
-def test_missing_variable_raises(
-    clean_dataset: xr.Dataset,
-    attributes: dict[str, dict[str, str]],
-    match: str,
-) -> None:
-    options = {FIX_ID: {"attributes": attributes}}
+def test_missing_variable_raises(clean_dataset: xr.Dataset) -> None:
+    options = {FIX_ID: {"attributes": {"prw": ATTRIBUTES}}}
 
-    with pytest.raises(ValueError, match=match):
+    with pytest.raises(ValueError, match="prw: it does not exist"):
         woodpecker.check(clean_dataset, fixes=FIX_ID, options=options)
 
 

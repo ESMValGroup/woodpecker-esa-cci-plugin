@@ -2,13 +2,14 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Annotated, Any
 
 import numpy as np
+from pydantic import Field
 from woodpecker.fixes.labels import Labels
-from woodpecker.fixes.registry import FixFunction, register_fix_function
+from woodpecker.fixes.registry import register_fix_function
 
+from ._options import ConfigurableFix, Options
 from .remove_attributes import remove_range_attributes
 
 if TYPE_CHECKING:
@@ -83,8 +84,14 @@ def _set_units(dataset: xr.Dataset, var: str, unit: str) -> None:
         dataset[name] = variable
 
 
+class ConvertUnitsOptions(Options):
+    """Options of :class:`ConvertUnits`."""
+
+    units: Annotated[dict[str, str], Field(min_length=1)] | None = None
+
+
 @register_fix_function
-class ConvertUnits(FixFunction):
+class ConvertUnits(ConfigurableFix[ConvertUnitsOptions]):
     """Convert variables to the configured units.
 
     The units are configured with the ``units`` option, a mapping from
@@ -108,27 +115,11 @@ class ConvertUnits(FixFunction):
     priority = 40
     dataset = "ESA-CCI"
     labels = [Labels.RISK_VALUE_TRANSFORMATION]  # noqa: RUF012
-
-    def _units(self) -> dict[str, str]:
-        raw = self.config.get("units")
-        if raw is None:
-            return {}
-        if not isinstance(raw, Mapping) or not all(
-            isinstance(unit, str) for unit in raw.values()
-        ):
-            msg = (
-                "The units option must be a mapping from variable name to "
-                "a units string"
-            )
-            raise TypeError(msg)
-        if not raw:
-            msg = "The units option must not be empty"
-            raise ValueError(msg)
-        return {str(var): unit for var, unit in raw.items()}
+    options_model = ConvertUnitsOptions
 
     def _wrong(self, dataset: xr.Dataset) -> dict[str, str]:
         wrong = {}
-        for var, unit in self._units().items():
+        for var, unit in (self.options.units or {}).items():
             if var not in dataset.variables:
                 msg = f"Unable to convert {var} to {unit}: it does not exist"
                 raise ValueError(msg)

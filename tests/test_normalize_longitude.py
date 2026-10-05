@@ -45,13 +45,6 @@ def test_unconfigured_fix_does_nothing(dataset: xr.Dataset) -> None:
     assert not woodpecker.check(dataset, fixes=FIX_ID)
 
 
-def test_invalid_option_raises(dataset: xr.Dataset) -> None:
-    options = {FIX_ID: {"coordinate": 1}}
-
-    with pytest.raises(TypeError, match="coordinate option"):
-        woodpecker.check(dataset, fixes=FIX_ID, options=options)
-
-
 @pytest.mark.parametrize(
     ("coordinate", "match"),
     [

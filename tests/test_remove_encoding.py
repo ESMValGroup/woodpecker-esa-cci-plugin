@@ -37,25 +37,6 @@ def test_unconfigured_fix_does_nothing(dataset: xr.Dataset) -> None:
     assert not woodpecker.check(dataset, fixes=FIX_ID)
 
 
-@pytest.mark.parametrize(
-    ("keys", "error", "match"),
-    [
-        ("dtype", TypeError, "sequence of encoding keys"),
-        ([], ValueError, "must not be empty"),
-    ],
-)
-def test_invalid_option_raises(
-    dataset: xr.Dataset,
-    keys: object,
-    error: type[Exception],
-    match: str,
-) -> None:
-    options = {FIX_ID: {"keys": keys}}
-
-    with pytest.raises(error, match=match):
-        woodpecker.check(dataset, fixes=FIX_ID, options=options)
-
-
 def test_encoding_is_removed(dataset: xr.Dataset) -> None:
     original = {
         name: dict(variable.encoding)

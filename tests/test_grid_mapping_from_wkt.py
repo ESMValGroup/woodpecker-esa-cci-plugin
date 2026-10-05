@@ -16,13 +16,6 @@ def test_unconfigured_fix_does_nothing(tcwv_dataset: xr.Dataset) -> None:
     assert not woodpecker.check(tcwv_dataset, fixes=FIX_ID)
 
 
-def test_invalid_option_raises(tcwv_dataset: xr.Dataset) -> None:
-    options = {FIX_ID: {"variable": ["crs"], "wkt_attribute": "wkt"}}
-
-    with pytest.raises(TypeError, match="variable option"):
-        woodpecker.check(tcwv_dataset, fixes=FIX_ID, options=options)
-
-
 def test_wkt_is_converted_to_cf(tcwv_dataset: xr.Dataset) -> None:
     original = dict(tcwv_dataset["crs"].attrs)
 

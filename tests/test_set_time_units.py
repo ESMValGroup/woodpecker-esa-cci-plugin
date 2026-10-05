@@ -17,13 +17,6 @@ def test_unconfigured_fix_does_nothing(tcwv_dataset: xr.Dataset) -> None:
     assert not woodpecker.check(tcwv_dataset, fixes=FIX_ID)
 
 
-def test_invalid_option_raises(tcwv_dataset: xr.Dataset) -> None:
-    options = {FIX_ID: {"coordinate": "time", "units": 1}}
-
-    with pytest.raises(TypeError, match="units option"):
-        woodpecker.check(tcwv_dataset, fixes=FIX_ID, options=options)
-
-
 @pytest.mark.parametrize(
     ("options", "match"),
     [

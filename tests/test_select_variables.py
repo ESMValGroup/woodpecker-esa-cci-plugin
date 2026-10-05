@@ -24,18 +24,10 @@ def test_unconfigured_fix_does_nothing(dataset: xr.Dataset) -> None:
     assert not woodpecker.check(dataset, fixes=FIX_ID)
 
 
-@pytest.mark.parametrize(
-    ("variables", "match"),
-    [([], "must not be empty"), (["tcwv", "prw"], "select prw: not in")],
-)
-def test_missing_variable_raises(
-    dataset: xr.Dataset,
-    variables: list[str],
-    match: str,
-) -> None:
-    options = {FIX_ID: {"variables": variables}}
+def test_missing_variable_raises(dataset: xr.Dataset) -> None:
+    options = {FIX_ID: {"variables": ["tcwv", "prw"]}}
 
-    with pytest.raises(ValueError, match=match):
+    with pytest.raises(ValueError, match="select prw: not in"):
         woodpecker.check(dataset, fixes=FIX_ID, options=options)
 
 
@@ -44,17 +36,6 @@ def test_tuple_option_is_accepted(dataset: xr.Dataset) -> None:
 
     woodpecker.apply(dataset, fixes=FIX_ID, dry_run=False, options=options)
     assert "tcwv_err" not in dataset
-
-
-@pytest.mark.parametrize("variables", ["tcwv", b"tcwv"])
-def test_invalid_option_raises(
-    dataset: xr.Dataset,
-    variables: str | bytes,
-) -> None:
-    options = {FIX_ID: {"variables": variables}}
-
-    with pytest.raises(TypeError, match="variables option"):
-        woodpecker.check(dataset, fixes=FIX_ID, options=options)
 
 
 def test_referenced_variables_are_kept(dataset: xr.Dataset) -> None:

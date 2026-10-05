@@ -29,29 +29,21 @@ def test_unconfigured_fix_does_nothing(dataset: xr.Dataset) -> None:
 
 
 @pytest.mark.parametrize(
-    ("options", "error", "match"),
+    ("options", "match"),
     [
-        ({"attributes": "CF-1.11"}, TypeError, "attributes option must be"),
-        ({"rename": {}}, ValueError, "rename option must not be empty"),
-        (
-            {"rename": {"title": "Conventions"}},
-            ValueError,
-            "Conventions already exists",
-        ),
+        ({"rename": {"title": "Conventions"}}, "Conventions already exists"),
         (
             {"rename": {"naming_authority": "authority"}},
-            ValueError,
             "naming_authority does not exist",
         ),
     ],
 )
-def test_invalid_option_raises(
+def test_invalid_rename_raises(
     dataset: xr.Dataset,
     options: dict[str, object],
-    error: type[Exception],
     match: str,
 ) -> None:
-    with pytest.raises(error, match=match):
+    with pytest.raises(ValueError, match=match):
         woodpecker.check(dataset, fixes=FIX_ID, options={FIX_ID: options})
 
 

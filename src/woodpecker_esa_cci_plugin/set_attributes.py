@@ -3,12 +3,14 @@
 from __future__ import annotations
 
 import copy
-from collections.abc import Mapping
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Annotated, Any
 
 import numpy as np
+from pydantic import Field
 from woodpecker.fixes.labels import Labels
-from woodpecker.fixes.registry import FixFunction, register_fix_function
+from woodpecker.fixes.registry import register_fix_function
+
+from ._options import ConfigurableFix, Options
 
 if TYPE_CHECKING:
     import xarray as xr
@@ -25,8 +27,20 @@ def _equal(current: Any, value: Any) -> bool:  # noqa: ANN401
         return bool(np.array_equal(current, value))
 
 
+class SetAttributesOptions(Options):
+    """Options of :class:`SetAttributes`."""
+
+    attributes: (
+        Annotated[
+            dict[str, Annotated[dict[str, Any], Field(min_length=1)]],
+            Field(min_length=1),
+        ]
+        | None
+    ) = None
+
+
 @register_fix_function
-class SetAttributes(FixFunction):
+class SetAttributes(ConfigurableFix[SetAttributesOptions]):
     """Set attributes on variables where they are missing or wrong.
 
     The correct attributes are configured with the ``attributes`` option,
@@ -46,27 +60,11 @@ class SetAttributes(FixFunction):
     priority = 50
     dataset = "ESA-CCI"
     labels = [Labels.RISK_METADATA_ONLY]  # noqa: RUF012
-
-    def _attributes(self) -> dict[str, dict[str, object]]:
-        raw = self.config.get("attributes")
-        if raw is None:
-            return {}
-        if not isinstance(raw, Mapping) or not all(
-            isinstance(attrs, Mapping) for attrs in raw.values()
-        ):
-            msg = (
-                "The attributes option must be a mapping from variable name "
-                "to a mapping of attribute names to values"
-            )
-            raise TypeError(msg)
-        if not raw or not all(raw.values()):
-            msg = "The attributes option must not be empty"
-            raise ValueError(msg)
-        return {str(var): dict(attrs) for var, attrs in raw.items()}
+    options_model = SetAttributesOptions
 
     def _wrong(self, dataset: xr.Dataset) -> dict[str, dict[str, object]]:
         wrong = {}
-        for var, attrs in self._attributes().items():
+        for var, attrs in (self.options.attributes or {}).items():
             if var not in dataset.variables:
                 msg = f"Unable to set attributes on {var}: it does not exist"
                 raise ValueError(msg)

@@ -2,18 +2,40 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Self
 
 import numpy as np
+from pydantic import model_validator
 from woodpecker.fixes.labels import Labels
-from woodpecker.fixes.registry import FixFunction, register_fix_function
+from woodpecker.fixes.registry import register_fix_function
+
+from ._options import ConfigurableFix, Options
 
 if TYPE_CHECKING:
     import xarray as xr
 
 
+class SetTimeUnitsOptions(Options):
+    """Options of :class:`SetTimeUnits`."""
+
+    coordinate: str | None = None
+    units: str | None = None
+    calendar: str | None = None
+
+    @model_validator(mode="after")
+    def _coordinate_and_encoding(self) -> Self:
+        encoding = self.units is not None or self.calendar is not None
+        if (self.coordinate is not None) != encoding:
+            msg = (
+                "The coordinate option and the units or calendar option must "
+                "be set"
+            )
+            raise ValueError(msg)
+        return self
+
+
 @register_fix_function
-class SetTimeUnits(FixFunction):
+class SetTimeUnits(ConfigurableFix[SetTimeUnitsOptions]):
     """Set the units and calendar that a decoded time coordinate is stored in.
 
     The time coordinate is configured with the ``coordinate`` option, the
@@ -38,32 +60,21 @@ class SetTimeUnits(FixFunction):
     priority = 50
     dataset = "ESA-CCI"
     labels = [Labels.RISK_METADATA_ONLY]  # noqa: RUF012
-
-    def _option(self, name: str) -> str | None:
-        value = self.config.get(name)
-        if value is None:
-            return None
-        if not isinstance(value, str):
-            msg = f"The {name} option must be a string"
-            raise TypeError(msg)
-        return value
+    options_model = SetTimeUnitsOptions
 
     def _wrong(self, dataset: xr.Dataset) -> tuple[str, dict[str, str]] | None:
         """Return the coordinate and the encoding that needs to be set."""
-        name = self._option("coordinate")
+        name = self.options.coordinate
+        if name is None:
+            return None
         wanted = {
             key: value
-            for key in ("units", "calendar")
-            if (value := self._option(key)) is not None
+            for key, value in [
+                ("units", self.options.units),
+                ("calendar", self.options.calendar),
+            ]
+            if value is not None
         }
-        if name is None and not wanted:
-            return None
-        if name is None or not wanted:
-            msg = (
-                "The coordinate option and the units or calendar option must "
-                "be set"
-            )
-            raise ValueError(msg)
         if name not in dataset.variables:
             msg = f"Unable to set the units of {name}: it does not exist"
             raise ValueError(msg)

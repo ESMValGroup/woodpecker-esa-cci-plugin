@@ -2,11 +2,12 @@
 
 from __future__ import annotations
 
-from collections.abc import Sequence
 from typing import TYPE_CHECKING
 
 from woodpecker.fixes.labels import Labels
-from woodpecker.fixes.registry import FixFunction, register_fix_function
+from woodpecker.fixes.registry import register_fix_function
+
+from ._options import ConfigurableFix, NonEmptyNames, Options
 
 if TYPE_CHECKING:
     from collections.abc import Hashable
@@ -24,8 +25,14 @@ def remove_range_attributes(variable: xr.Variable) -> None:
         variable.attrs.pop(key, None)
 
 
+class RemoveAttributesOptions(Options):
+    """Options of :class:`RemoveAttributes`."""
+
+    attributes: NonEmptyNames | None = None
+
+
 @register_fix_function
-class RemoveAttributes(FixFunction):
+class RemoveAttributes(ConfigurableFix[RemoveAttributesOptions]):
     """Remove attributes from all variables.
 
     The attributes are configured with the ``attributes`` option, a list of
@@ -46,21 +53,10 @@ class RemoveAttributes(FixFunction):
     priority = 30
     dataset = "ESA-CCI"
     labels = [Labels.RISK_METADATA_ONLY]  # noqa: RUF012
-
-    def _attributes(self) -> list[str]:
-        raw = self.config.get("attributes")
-        if raw is None:
-            return []
-        if isinstance(raw, (str, bytes)) or not isinstance(raw, Sequence):
-            msg = "The attributes option must be a sequence of attribute names"
-            raise TypeError(msg)
-        if not raw:
-            msg = "The attributes option must not be empty"
-            raise ValueError(msg)
-        return [str(key) for key in raw]
+    options_model = RemoveAttributesOptions
 
     def _wrong(self, dataset: xr.Dataset) -> dict[Hashable, list[str]]:
-        attributes = self._attributes()
+        attributes = self.options.attributes or []
         wrong = {}
         for name, variable in dataset.variables.items():
             if keys := [key for key in attributes if key in variable.attrs]:

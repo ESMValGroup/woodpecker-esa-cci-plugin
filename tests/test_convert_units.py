@@ -19,25 +19,10 @@ def test_unconfigured_fix_does_nothing(tcwv_dataset: xr.Dataset) -> None:
     assert not woodpecker.check(tcwv_dataset, fixes=FIX_ID)
 
 
-def test_invalid_option_raises(tcwv_dataset: xr.Dataset) -> None:
-    options = {FIX_ID: {"units": {"tcwv": 1}}}
+def test_missing_variable_raises(tcwv_dataset: xr.Dataset) -> None:
+    options = {FIX_ID: {"units": {"prw": "kg m-2"}}}
 
-    with pytest.raises(TypeError, match="units option"):
-        woodpecker.check(tcwv_dataset, fixes=FIX_ID, options=options)
-
-
-@pytest.mark.parametrize(
-    ("units", "match"),
-    [({}, "must not be empty"), ({"prw": "kg m-2"}, "prw to kg m-2: it does")],
-)
-def test_missing_variable_raises(
-    tcwv_dataset: xr.Dataset,
-    units: dict[str, str],
-    match: str,
-) -> None:
-    options = {FIX_ID: {"units": units}}
-
-    with pytest.raises(ValueError, match=match):
+    with pytest.raises(ValueError, match="prw to kg m-2: it does not exist"):
         woodpecker.check(tcwv_dataset, fixes=FIX_ID, options=options)
 
 

@@ -1,11 +1,22 @@
+from importlib.resources import files
+
 import numpy as np
 import pytest
 import woodpecker
 import xarray as xr
+import yaml
+from woodpecker.fixes.registry import FixFunctionRegistry
 
 from woodpecker_esa_cci_plugin.remove_attributes import RANGE_ATTRIBUTES
 
 RECIPE_ID = "esa_cci.water_vapour"
+# The ids of all recipes shipped with the plugin.
+RECIPE_IDS = sorted(
+    recipe["id"]
+    for path in (files("woodpecker_esa_cci_plugin") / "recipes").iterdir()
+    if path.name.endswith(".yaml")
+    for recipe in yaml.safe_load(path.read_text(encoding="utf-8"))["recipes"]
+)
 PACKING_KEYS = (
     "_FillValue",
     "_Unsigned",
@@ -16,14 +27,18 @@ PACKING_KEYS = (
 )
 
 
-@pytest.mark.parametrize(
-    "recipe_id",
-    [RECIPE_ID, "esa_cci.sea_surface_temperature"],
-)
-def test_recipe_is_discovered_from_package(recipe_id: str) -> None:
-    recipe = woodpecker.recipe.get(recipe_id)
+def test_recipes_are_found() -> None:
+    assert RECIPE_ID in RECIPE_IDS
 
-    assert recipe.id == recipe_id
+
+@pytest.mark.parametrize("recipe_id", RECIPE_IDS)
+def test_recipe_is_discovered_and_valid(recipe_id: str) -> None:
+    # Woodpecker discovers the recipes through the plugin entry point.
+    recipe = woodpecker.recipe.get(recipe_id)
+    for step in recipe.steps:
+        fix_id = recipe.resolve_fix_identifier(step)
+        # Fixes of this plugin validate their options when configured.
+        FixFunctionRegistry.instantiate(fix_id).configure(step.options)
 
 
 def test_recipe_fixes_dataset(tcwv_dataset: xr.Dataset) -> None:

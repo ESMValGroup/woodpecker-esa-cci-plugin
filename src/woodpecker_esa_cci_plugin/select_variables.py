@@ -2,11 +2,12 @@
 
 from __future__ import annotations
 
-from collections.abc import Sequence
 from typing import TYPE_CHECKING
 
 from woodpecker.fixes.labels import Labels
-from woodpecker.fixes.registry import FixFunction, register_fix_function
+from woodpecker.fixes.registry import register_fix_function
+
+from ._options import ConfigurableFix, NonEmptyNames, Options
 
 if TYPE_CHECKING:
     from collections.abc import Hashable, Iterator
@@ -62,8 +63,14 @@ def _required_names(
     return required
 
 
+class SelectVariablesOptions(Options):
+    """Options of :class:`SelectVariables`."""
+
+    variables: NonEmptyNames | None = None
+
+
 @register_fix_function
-class SelectVariables(FixFunction):
+class SelectVariables(ConfigurableFix[SelectVariablesOptions]):
     """Keep the configured variables and the variables they refer to.
 
     The variables are configured with the ``variables`` option, a list of
@@ -84,21 +91,10 @@ class SelectVariables(FixFunction):
     priority = 60
     dataset = "ESA-CCI"
     labels = [Labels.RISK_VARIABLE_REMOVAL]  # noqa: RUF012
-
-    def _variables(self) -> list[str]:
-        raw = self.config.get("variables")
-        if raw is None:
-            return []
-        if isinstance(raw, (str, bytes)) or not isinstance(raw, Sequence):
-            msg = "The variables option must be a sequence of variable names"
-            raise TypeError(msg)
-        if not raw:
-            msg = "The variables option must not be empty"
-            raise ValueError(msg)
-        return [str(name) for name in raw]
+    options_model = SelectVariablesOptions
 
     def _unwanted(self, dataset: xr.Dataset) -> list[Hashable]:
-        variables = self._variables()
+        variables = self.options.variables or []
         if not variables:
             return []
         if missing := [name for name in variables if name not in dataset]:

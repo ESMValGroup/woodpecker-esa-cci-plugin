@@ -2,11 +2,12 @@
 
 from __future__ import annotations
 
-from collections.abc import Sequence
 from typing import TYPE_CHECKING
 
 from woodpecker.fixes.labels import Labels
-from woodpecker.fixes.registry import FixFunction, register_fix_function
+from woodpecker.fixes.registry import register_fix_function
+
+from ._options import ConfigurableFix, NonEmptyNames, Options
 
 if TYPE_CHECKING:
     from collections.abc import Hashable
@@ -21,8 +22,14 @@ def _is_decoded_time(variable: xr.Variable) -> bool:
     return "units" in variable.encoding
 
 
+class RemoveEncodingOptions(Options):
+    """Options of :class:`RemoveEncoding`."""
+
+    keys: NonEmptyNames | None = None
+
+
 @register_fix_function
-class RemoveEncoding(FixFunction):
+class RemoveEncoding(ConfigurableFix[RemoveEncodingOptions]):
     """Remove encoding keys from all variables, except decoded times.
 
     The keys are configured with the ``keys`` option, a list of encoding
@@ -49,21 +56,10 @@ class RemoveEncoding(FixFunction):
     priority = 30
     dataset = "ESA-CCI"
     labels = [Labels.RISK_METADATA_ONLY]  # noqa: RUF012
-
-    def _keys(self) -> list[str]:
-        raw = self.config.get("keys")
-        if raw is None:
-            return []
-        if isinstance(raw, (str, bytes)) or not isinstance(raw, Sequence):
-            msg = "The keys option must be a sequence of encoding keys"
-            raise TypeError(msg)
-        if not raw:
-            msg = "The keys option must not be empty"
-            raise ValueError(msg)
-        return [str(key) for key in raw]
+    options_model = RemoveEncodingOptions
 
     def _wrong(self, dataset: xr.Dataset) -> dict[Hashable, list[str]]:
-        keys = self._keys()
+        keys = self.options.keys or []
         wrong = {}
         for name, variable in dataset.variables.items():
             if _is_decoded_time(variable):

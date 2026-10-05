@@ -3,20 +3,28 @@
 from __future__ import annotations
 
 import copy
-from collections.abc import Mapping
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Annotated, Any
 
+from pydantic import Field
 from woodpecker.fixes.labels import Labels
-from woodpecker.fixes.registry import FixFunction, register_fix_function
+from woodpecker.fixes.registry import register_fix_function
 
+from ._options import ConfigurableFix, Options
 from .set_attributes import _equal
 
 if TYPE_CHECKING:
     import xarray as xr
 
 
+class SetGlobalAttributesOptions(Options):
+    """Options of :class:`SetGlobalAttributes`."""
+
+    rename: Annotated[dict[str, str], Field(min_length=1)] | None = None
+    attributes: Annotated[dict[str, Any], Field(min_length=1)] | None = None
+
+
 @register_fix_function
-class SetGlobalAttributes(FixFunction):
+class SetGlobalAttributes(ConfigurableFix[SetGlobalAttributesOptions]):
     """Rename, set and remove global attributes.
 
     Attributes are renamed with the ``rename`` option, a mapping from the
@@ -39,25 +47,11 @@ class SetGlobalAttributes(FixFunction):
     priority = 50
     dataset = "ESA-CCI"
     labels = [Labels.RISK_METADATA_ONLY]  # noqa: RUF012
-
-    def _mapping(self, name: str) -> dict[str, object]:
-        raw = self.config.get(name)
-        if raw is None:
-            return {}
-        if not isinstance(raw, Mapping):
-            msg = f"The {name} option must be a mapping"
-            raise TypeError(msg)
-        if not raw:
-            msg = f"The {name} option must not be empty"
-            raise ValueError(msg)
-        return {str(key): value for key, value in raw.items()}
+    options_model = SetGlobalAttributesOptions
 
     def _rename(self, dataset: xr.Dataset) -> dict[str, str]:
-        rename = {
-            old: str(new) for old, new in self._mapping("rename").items()
-        }
         wrong = {}
-        for old, new in rename.items():
+        for old, new in (self.options.rename or {}).items():
             if old in dataset.attrs and new not in dataset.attrs:
                 wrong[old] = new
             elif old in dataset.attrs:
@@ -76,7 +70,7 @@ class SetGlobalAttributes(FixFunction):
         attrs = {rename.get(key, key): v for key, v in dataset.attrs.items()}
         changes = {
             key: value
-            for key, value in self._mapping("attributes").items()
+            for key, value in (self.options.attributes or {}).items()
             if not _equal(attrs.get(key), value)
         }
         return rename, changes

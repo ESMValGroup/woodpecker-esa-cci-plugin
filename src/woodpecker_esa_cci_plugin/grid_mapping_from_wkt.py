@@ -2,18 +2,35 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Self
 
+from pydantic import model_validator
 from pyproj import CRS
 from woodpecker.fixes.labels import Labels
-from woodpecker.fixes.registry import FixFunction, register_fix_function
+from woodpecker.fixes.registry import register_fix_function
+
+from ._options import ConfigurableFix, Options
 
 if TYPE_CHECKING:
     import xarray as xr
 
 
+class GridMappingFromWktOptions(Options):
+    """Options of :class:`GridMappingFromWkt`."""
+
+    variable: str | None = None
+    wkt_attribute: str | None = None
+
+    @model_validator(mode="after")
+    def _both_or_neither(self) -> Self:
+        if (self.variable is None) != (self.wkt_attribute is None):
+            msg = "The variable and wkt_attribute options must both be set"
+            raise ValueError(msg)
+        return self
+
+
 @register_fix_function
-class GridMappingFromWkt(FixFunction):
+class GridMappingFromWkt(ConfigurableFix[GridMappingFromWktOptions]):
     """Set CF grid mapping attributes from a WKT attribute.
 
     The grid mapping variable is configured with the ``variable`` option and
@@ -32,25 +49,14 @@ class GridMappingFromWkt(FixFunction):
     priority = 50
     dataset = "ESA-CCI"
     labels = [Labels.RISK_METADATA_ONLY]  # noqa: RUF012
-
-    def _option(self, name: str) -> str | None:
-        value = self.config.get(name)
-        if value is None:
-            return None
-        if not isinstance(value, str):
-            msg = f"The {name} option must be a string"
-            raise TypeError(msg)
-        return value
+    options_model = GridMappingFromWktOptions
 
     def _wkt(self, dataset: xr.Dataset) -> tuple[str, str] | None:
         """Return the variable and WKT attribute names if configured."""
-        variable = self._option("variable")
-        wkt_attribute = self._option("wkt_attribute")
-        if variable is None and wkt_attribute is None:
-            return None
+        variable = self.options.variable
+        wkt_attribute = self.options.wkt_attribute
         if variable is None or wkt_attribute is None:
-            msg = "The variable and wkt_attribute options must both be set"
-            raise ValueError(msg)
+            return None
         if variable not in dataset.variables:
             msg = f"Unable to read the WKT of {variable}: it does not exist"
             raise ValueError(msg)
