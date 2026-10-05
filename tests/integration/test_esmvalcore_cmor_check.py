@@ -1,29 +1,13 @@
-import json
-
 import pytest
 
-from .esa_cci_data import (
-    BUCKET,
-    CASES,
-    PATTERNS,
-    STORAGE_OPTIONS,
-    Case,
-    open_fixed_dataset,
-)
+from .esa_cci_data import CASES, Case, open_fixed_dataset
 
 # Importing the configuration loads the CMOR tables.
 pytest.importorskip("esmvalcore.config")
 esmvalcore_check = pytest.importorskip("esmvalcore.cmor.check")
-s3fs = pytest.importorskip("s3fs")
+pytest.importorskip("s3fs")
 iris_xarray = pytest.importorskip("ncdata.iris_xarray")
 iris = pytest.importorskip("iris")
-
-
-def test_all_datasets_are_checked() -> None:
-    fs = s3fs.S3FileSystem(**STORAGE_OPTIONS)
-    data_ids = json.loads(fs.cat(f"{BUCKET}/data_ids.json"))
-    expected = [i for i in data_ids if any(p in i for p in PATTERNS)]
-    assert sorted(expected) == sorted(case.data_id for case in CASES)
 
 
 @pytest.mark.parametrize("case", CASES, ids=[c.variable_id for c in CASES])

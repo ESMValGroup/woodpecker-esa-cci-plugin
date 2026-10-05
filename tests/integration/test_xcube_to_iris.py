@@ -3,13 +3,13 @@ from typing import Any
 
 import pytest
 import woodpecker
+from woodpecker.io.backends.xr import XarrayInput
 
 xcube_store = pytest.importorskip("xcube.core.store")
 iris_xarray = pytest.importorskip("ncdata.iris_xarray")
 iris = pytest.importorskip("iris")
 
 DATA_ID = "ESACCI-WATERVAPOUR-L3C-TCWV-meris-005deg-2002-2017-fv3.2.zarr"
-RECIPE_ID = "esa_cci.water_vapour"
 
 
 @pytest.fixture(scope="module")
@@ -19,8 +19,13 @@ def cci_store() -> Any:  # noqa: ANN401
 
 def test_prw_loads_with_iris_without_warnings(cci_store: Any) -> None:  # noqa: ANN401
     dataset = cci_store.open_data(DATA_ID)
-    recipe = woodpecker.recipe.get(RECIPE_ID)
-    woodpecker.recipe.apply(dataset, recipe, dry_run=False)
+    # Woodpecker selects the recipe by matching its path_patterns against
+    # the data id.
+    woodpecker.recipe.apply(
+        XarrayInput(payload=dataset, name=DATA_ID),
+        woodpecker.recipe.catalog(),
+        dry_run=False,
+    )
 
     # Opt in to loading the datum from the grid mapping, otherwise iris
     # warns that it ignores it.
