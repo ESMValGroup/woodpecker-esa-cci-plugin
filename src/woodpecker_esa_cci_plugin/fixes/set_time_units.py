@@ -71,8 +71,12 @@ class SetTimeUnits(ConfigurableFix[SetTimeUnitsOptions]):
     suffix = "set_time_units"
     name = "Set time units"
     description = (
-        "Sets the units and calendar that the configured time coordinate and "
-        "its bounds are stored in."
+        "Sets the units and calendar that the time coordinate configured with "
+        "the coordinate option, and its bounds, are stored in to the units "
+        "option, e.g. days since 1850-01-01, and the calendar option, e.g. "
+        "standard. For decoded times, the time values do not change, only how "
+        "they are written. Times that are not decoded are converted to the "
+        "new units and calendar."
     )
     categories = ["metadata", "units"]  # noqa: RUF012
     priority = 50

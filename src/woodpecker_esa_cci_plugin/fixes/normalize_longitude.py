@@ -39,8 +39,11 @@ class NormalizeLongitude(ConfigurableFix[NormalizeLongitudeOptions]):
     suffix = "normalize_longitude"
     name = "Normalize longitude"
     description = (
-        "Wraps the configured longitude coordinate and its bounds to "
-        "[0, 360) and reorders the data so the coordinate stays increasing."
+        "Wraps the longitude dimension coordinate configured with the "
+        "coordinate option, and its bounds, to [0, 360) and reorders the data "
+        "so the coordinate stays increasing. Their range attributes, such as "
+        "valid_range, are removed. Unlike the core woodpecker "
+        "normalize_longitude_convention fix, the result is monotonic."
     )
     categories = ["coordinates"]  # noqa: RUF012
     priority = 50

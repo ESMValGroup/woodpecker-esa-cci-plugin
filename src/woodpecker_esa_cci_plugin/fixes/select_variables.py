@@ -86,8 +86,9 @@ class SelectVariables(ConfigurableFix[SelectVariablesOptions]):
     suffix = "select_variables"
     name = "Select variables"
     description = (
-        "Drops all data variables except the configured ones and the "
-        "variables they refer to."
+        "Drops all data variables except the ones configured with the "
+        "variables option and the variables they refer to through CF "
+        "attributes, such as ancillary variables and coordinate bounds."
     )
     categories = ["structure"]  # noqa: RUF012
     # Run after fixes that add references to variables, such as

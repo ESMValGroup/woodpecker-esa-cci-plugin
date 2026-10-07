@@ -37,7 +37,11 @@ class RemoveRangeAttributes(ConfigurableFix[Options]):
 
     suffix = "remove_range_attributes"
     name = "Remove range attributes"
-    description = "Removes the range attributes from all variables."
+    description = (
+        "Removes the range attributes actual_range, valid_min, valid_max and "
+        "valid_range from all variables. xarray does not use them, and they "
+        "become invalid as soon as the values change."
+    )
     categories = ["metadata"]  # noqa: RUF012
     priority = 30
     dataset = "ESA-CCI"

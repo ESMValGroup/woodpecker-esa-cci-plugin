@@ -3,7 +3,8 @@
 This is a [Woodpecker](https://github.com/roocs/woodpecker) plugin with fixes
 and recipes that make ESA CCI datasets follow the CF conventions and the
 CMIP7 data request. Woodpecker finds it through the `woodpecker.plugins`
-entry point in `pyproject.toml`. The README lists all fixes and recipes.
+entry point in `pyproject.toml`. The README is written for users, and
+CONTRIBUTING.md for developers.
 
 ## Development environment
 
@@ -37,9 +38,11 @@ changing the dependencies in `pyproject.toml`, run `pixi lock`.
   subclass of `ConfigurableFix` from `configurable_fix.py`, registered with
   `@register_fix_function`. Its recipe options are a pydantic model, so
   unknown or invalid options raise an error. Fixes without options use
-  `Options` itself.
+  `Options` itself. The `description` of a fix is its user documentation,
+  shown by `woodpecker list-fixes`, so it describes the options and why the
+  fix is needed.
 - `src/woodpecker_esa_cci_plugin/__init__.py`: imports all fixes, which
-  registers them. Add new fixes here and to the README.
+  registers them. Add new fixes here.
 - `src/woodpecker_esa_cci_plugin/recipes/`: one YAML file per dataset.
   Woodpecker selects a recipe by matching its `path_patterns` against the
   input name. Steps run in the order listed, each fix at most once per

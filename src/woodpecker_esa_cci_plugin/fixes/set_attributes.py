@@ -71,8 +71,9 @@ class SetAttributes(ConfigurableFix[SetAttributesOptions]):
     suffix = "set_attributes"
     name = "Set attributes"
     description = (
-        "Sets attributes on the configured variables when they are missing "
-        "or differ from the configured values."
+        "Sets the attributes configured with the attributes option, a mapping "
+        "from variable name to a mapping of attribute names to values, when "
+        "they are missing or differ from the configured values."
     )
     categories = ["metadata"]  # noqa: RUF012
     priority = 50

@@ -42,8 +42,10 @@ class GridMappingFromWkt(ConfigurableFix[GridMappingFromWktOptions]):
     suffix = "grid_mapping_from_wkt"
     name = "Grid mapping from WKT"
     description = (
-        "Sets the CF grid mapping attributes of the configured variable from "
-        "its WKT attribute and replaces that attribute with crs_wkt."
+        "Sets the CF grid mapping attributes of the variable configured with "
+        "the variable option from the WKT string in its wkt_attribute "
+        "attribute, using pyproj, and replaces that attribute with the CF "
+        "crs_wkt attribute."
     )
     categories = ["metadata", "coordinates"]  # noqa: RUF012
     priority = 50

@@ -53,8 +53,12 @@ class RemovePacking(ConfigurableFix[Options]):
     suffix = "remove_packing"
     name = "Remove packing"
     description = (
-        "Removes the packing encoding from all variables, except variables "
-        "with decoded times."
+        "Removes the packing encoding (dtype, scale_factor, add_offset, "
+        "_FillValue, missing_value and _Unsigned) from all variables, except "
+        "variables with decoded times, whose encoding defines the units and "
+        "calendar they are written in. xarray keeps the packing encoding when "
+        "values change and then writes values that no longer fit, so the "
+        "output is not packed, unless the encoding is set again when writing."
     )
     categories = ["metadata"]  # noqa: RUF012
     priority = 30

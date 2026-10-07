@@ -34,7 +34,8 @@ class SetGlobalAttributes(ConfigurableFix[SetGlobalAttributesOptions]):
     suffix = "set_global_attributes"
     name = "Set global attributes"
     description = (
-        "Sets the configured global attributes when they are missing or "
+        "Sets the global attributes configured with the attributes option, a "
+        "mapping from attribute name to value, when they are missing or "
         "differ from the configured values."
     )
     categories = ["metadata"]  # noqa: RUF012

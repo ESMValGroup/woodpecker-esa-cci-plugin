@@ -109,8 +109,12 @@ class ConvertUnits(ConfigurableFix[ConvertUnitsOptions]):
     suffix = "convert_units"
     name = "Convert units"
     description = (
-        "Converts the configured variables to the configured units and sets "
-        "their units attribute to the configured string."
+        "Converts the variables configured with the units option, a mapping "
+        "from variable name to units, using pint with the cf-xarray units "
+        "registry. Unlike the core woodpecker convert_units fix, it sets the "
+        "units attribute to the configured string, so the result can follow "
+        "the CF conventions. The range attributes and packing encoding of the "
+        "converted variables are removed."
     )
     categories = ["metadata", "units"]  # noqa: RUF012
     priority = 40

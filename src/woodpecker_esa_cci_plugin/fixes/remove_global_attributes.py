@@ -33,7 +33,10 @@ class RemoveGlobalAttributes(ConfigurableFix[RemoveGlobalAttributesOptions]):
 
     suffix = "remove_global_attributes"
     name = "Remove global attributes"
-    description = "Removes the configured global attributes."
+    description = (
+        "Removes the global attributes configured with the attributes option, "
+        "a list of attribute names."
+    )
     categories = ["metadata"]  # noqa: RUF012
     priority = 50
     dataset = "ESA-CCI"

@@ -38,7 +38,10 @@ class RemoveAttributes(ConfigurableFix[RemoveAttributesOptions]):
 
     suffix = "remove_attributes"
     name = "Remove attributes"
-    description = "Removes the configured attributes from variables."
+    description = (
+        "Removes the attributes configured with the attributes option, a "
+        "mapping from variable name to a list of attribute names."
+    )
     categories = ["metadata"]  # noqa: RUF012
     priority = 50
     dataset = "ESA-CCI"
