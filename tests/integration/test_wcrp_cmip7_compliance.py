@@ -1,4 +1,5 @@
 import shutil
+import subprocess
 from pathlib import Path
 
 import pytest
@@ -24,8 +25,21 @@ SKIPPED_ATTRIBUTES = (
     "scale_factor",
     "add_offset",
 )
+# The versions of the vocabularies that the checker checks against.
+VOCABULARIES = ("cmip7@2.4.1", "universe@3.2.7")
 # The format of the time range at the end of CMIP7 file names.
 TIME_RANGE_FORMATS = {"mon": "%Y%m", "day": "%Y%m%d"}
+
+
+@pytest.fixture(scope="module")
+def _vocabularies() -> None:
+    """Install and activate the vocabularies, if they are not installed.
+
+    The online environment stores them in .pixi/esgvoc.
+    """
+    esgvoc = shutil.which("esgvoc")
+    assert esgvoc is not None
+    subprocess.run([esgvoc, "use", *VOCABULARIES], check=True)  # noqa: S603
 
 
 @pytest.fixture(scope="module")
@@ -45,6 +59,7 @@ def config_dir(tmp_path_factory: pytest.TempPathFactory) -> Path:
     return target
 
 
+@pytest.mark.usefixtures("_vocabularies")
 @pytest.mark.parametrize("case", CASES, ids=[c.variable_id for c in CASES])
 def test_complies_with_cmip7(
     case: Case,
