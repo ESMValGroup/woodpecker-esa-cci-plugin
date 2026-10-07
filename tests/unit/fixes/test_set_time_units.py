@@ -22,7 +22,10 @@ def test_unconfigured_fix_does_nothing(tcwv_dataset: xr.Dataset) -> None:
     [
         ({"coordinate": "time"}, "units or calendar option must be set"),
         ({"coordinate": "t", "units": UNITS}, "t: it does not exist"),
-        ({"coordinate": "lat", "units": UNITS}, "lat: it is not decoded"),
+        (
+            {"coordinate": "lat", "units": UNITS},
+            "lat: it does not contain times",
+        ),
     ],
 )
 def test_invalid_coordinate_raises(
@@ -87,4 +90,35 @@ def test_calendar_is_set(tcwv_dataset: xr.Dataset) -> None:
             **encoding,
             "calendar": "standard",
         }
+    assert not woodpecker.check(tcwv_dataset, fixes=FIX_ID, options=options)
+
+
+def test_undecoded_times_are_converted(tcwv_dataset: xr.Dataset) -> None:
+    original = tcwv_dataset[["time", "time_bnds"]].copy(deep=True)
+    for name in ("time", "time_bnds"):
+        tcwv_dataset[name] = xr.conventions.encode_cf_variable(
+            tcwv_dataset[name].variable, name=name
+        )
+    assert tcwv_dataset["time"].attrs["units"] != UNITS
+    # CF allows bounds to inherit the units and calendar of their coordinate.
+    for key in ("units", "calendar"):
+        del tcwv_dataset["time_bnds"].attrs[key]
+    options = {
+        FIX_ID: {"coordinate": "time", "units": UNITS, "calendar": "standard"}
+    }
+
+    findings = woodpecker.check(tcwv_dataset, fixes=FIX_ID, options=options)
+    assert findings.fix_ids == (FIX_ID,) * 2
+
+    woodpecker.apply(
+        tcwv_dataset, fixes=FIX_ID, dry_run=False, options=options
+    )
+    for name in ("time", "time_bnds"):
+        variable = tcwv_dataset[name].variable
+        assert variable.attrs["units"] == UNITS
+        assert variable.attrs["calendar"] == "standard"
+        assert variable.dtype == np.float64
+        assert "_FillValue" not in variable.attrs
+        decoded = xr.conventions.decode_cf_variable(name, variable)
+        np.testing.assert_array_equal(decoded, original[name])
     assert not woodpecker.check(tcwv_dataset, fixes=FIX_ID, options=options)

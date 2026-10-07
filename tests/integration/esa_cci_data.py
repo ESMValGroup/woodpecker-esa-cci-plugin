@@ -45,15 +45,21 @@ CASES = [
 ]
 
 
-def open_fixed_dataset(case: Case) -> xr.Dataset:
+def open_fixed_dataset(
+    case: Case,
+    *,
+    decode_times: bool = True,
+) -> xr.Dataset:
     """Open the dataset of ``case`` lazily and apply the recipe matching it.
 
     Woodpecker selects the recipe by matching the recipe ``path_patterns``
-    against the data id, so the data id is passed as the input name.
+    against the data id, so the data id is passed as the input name. With
+    ``decode_times=False``, the times are kept as numbers.
     """
     dataset: xr.Dataset = xr.open_zarr(
         f"s3://{BUCKET}/{case.data_id}",
         storage_options=STORAGE_OPTIONS,
+        decode_times=decode_times,
     )
     woodpecker.recipe.apply(
         XarrayInput(payload=dataset, name=case.data_id),

@@ -22,8 +22,9 @@ recipes:
               # Keeps crs when selecting variables.
               grid_mapping: crs
             time:
-              # The times are decoded to numpy datetime64, which does not
-              # count leap seconds.
+              # xarray decodes the times to numpy datetime64 or cftime,
+              # which do not count leap seconds. Times that are not decoded
+              # are converted with them by esa_cci.set_time_units.
               units_metadata: "leap_seconds: none"
       - id: esa_cci.remove_attributes
         options:

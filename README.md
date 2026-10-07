@@ -50,18 +50,20 @@ This plugin registers:
   `grid_mapping` of `tcwv` and converts it to `kg m-2`; removes invalid
   standard names and the attributes that bounds variables inherit from their
   coordinates; removes the global attributes with hyphens in their names,
-  which CF does not allow, and sets `Conventions` to `CF-1.11`; stores time in the `standard` calendar and
-  marks it as not counting leap seconds; makes `crs` a CF grid mapping;
-  selects `tcwv`; makes latitude increasing; wraps longitude to [0, 360); and
-  renames `tcwv` to `prw`. It combines the fixes above with the core
-  woodpecker fixes `rename_variables` and `ensure_latitude_is_increasing`.
-  The result passes the ESMValCore CMIP7 CMOR check as `atmos` variable
-  `prw` and all CF 1.11 checks of the IOOS compliance checker.
-- Fix `esa_cci.set_time_units`: sets the units and calendar that the decoded
-  time coordinate configured with the `coordinate` option, and its bounds,
-  are stored in to the `units` option, e.g. `days since 1850-01-01`, and the
-  `calendar` option, e.g. `standard`. The time values do not change, only
-  how they are written.
+  which CF does not allow, and sets `Conventions` to `CF-1.11`; stores time
+  in the `standard` calendar and marks it as not counting leap seconds; makes
+  `crs` a CF grid mapping; selects `tcwv`; makes latitude increasing; wraps
+  longitude to [0, 360); and renames `tcwv` to `prw`. It combines the fixes
+  above with the core woodpecker fixes `rename_variables` and
+  `ensure_latitude_is_increasing`. The result passes the ESMValCore CMIP7
+  CMOR check as `atmos` variable `prw` and all CF 1.11 checks of the IOOS
+  compliance checker.
+- Fix `esa_cci.set_time_units`: sets the units and calendar that the time
+  coordinate configured with the `coordinate` option, and its bounds, are
+  stored in to the `units` option, e.g. `days since 1850-01-01`, and the
+  `calendar` option, e.g. `standard`. For decoded times, the time values do
+  not change, only how they are written. Times that are not decoded are
+  converted to the new units and calendar.
 - Fix `esa_cci.set_global_attributes`: sets the global attributes
   configured with the `attributes` option, a mapping from attribute name to
   value, where they are missing or wrong.

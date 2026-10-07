@@ -50,6 +50,7 @@ environments:
       - conda: https://conda.anaconda.org/conda-forge/linux-64/c-ares-1.34.8-hebe6cf0_2.conda
       - conda: https://conda.anaconda.org/conda-forge/linux-64/cairo-1.18.6-h3c89d7e_0.conda
       - conda: https://conda.anaconda.org/conda-forge/linux-64/cffi-2.1.1-py314h8d76f0c_3.conda
+      - conda: https://conda.anaconda.org/conda-forge/linux-64/cftime-1.6.5-py314h12ceea2_2.conda
       - conda: https://conda.anaconda.org/conda-forge/linux-64/contourpy-1.4.0-py314h5383ef5_1.conda
       - conda: https://conda.anaconda.org/conda-forge/linux-64/coverage-7.16.2-py314h93e9acf_0.conda
       - conda: https://conda.anaconda.org/conda-forge/linux-64/cytoolz-1.1.0-py314h89acca1_3.conda
@@ -387,6 +388,7 @@ environments:
       - conda: https://conda.anaconda.org/conda-forge/osx-arm64/c-ares-1.34.8-h74c22ad_2.conda
       - conda: https://conda.anaconda.org/conda-forge/osx-arm64/cairo-1.18.6-h580cee5_0.conda
       - conda: https://conda.anaconda.org/conda-forge/osx-arm64/cffi-2.1.1-py314h618e29d_3.conda
+      - conda: https://conda.anaconda.org/conda-forge/osx-arm64/cftime-1.6.5-py314hdd70a12_2.conda
       - conda: https://conda.anaconda.org/conda-forge/osx-arm64/contourpy-1.4.0-py314hb1acb19_1.conda
       - conda: https://conda.anaconda.org/conda-forge/osx-arm64/coverage-7.16.2-py314hae45268_0.conda
       - conda: https://conda.anaconda.org/conda-forge/osx-arm64/cytoolz-1.1.0-py314h61c6340_3.conda
@@ -614,6 +616,7 @@ environments:
       - conda: https://conda.anaconda.org/conda-forge/win-64/c-ares-1.34.8-h6a83c73_2.conda
       - conda: https://conda.anaconda.org/conda-forge/win-64/cairo-1.18.6-h477c42c_0.conda
       - conda: https://conda.anaconda.org/conda-forge/win-64/cffi-2.1.1-py314h5a2d7ad_3.conda
+      - conda: https://conda.anaconda.org/conda-forge/win-64/cftime-1.6.5-py314h2dcd201_2.conda
       - conda: https://conda.anaconda.org/conda-forge/win-64/contourpy-1.4.0-py314hf309875_1.conda
       - conda: https://conda.anaconda.org/conda-forge/win-64/coverage-7.16.2-py314h9aa99d3_0.conda
       - conda: https://conda.anaconda.org/conda-forge/win-64/cytoolz-1.1.0-py314h5a2d7ad_3.conda
@@ -2051,6 +2054,7 @@ environments:
       - conda: https://conda.anaconda.org/conda-forge/linux-64/c-ares-1.34.8-hebe6cf0_2.conda
       - conda: https://conda.anaconda.org/conda-forge/linux-64/cairo-1.18.6-h3c89d7e_0.conda
       - conda: https://conda.anaconda.org/conda-forge/linux-64/cffi-2.1.1-py311h904a5e5_3.conda
+      - conda: https://conda.anaconda.org/conda-forge/linux-64/cftime-1.6.6-h92857cb_0.conda
       - conda: https://conda.anaconda.org/conda-forge/linux-64/contourpy-1.3.3-py311h724c32c_4.conda
       - conda: https://conda.anaconda.org/conda-forge/linux-64/coverage-7.16.2-py311h364832d_0.conda
       - conda: https://conda.anaconda.org/conda-forge/linux-64/cytoolz-1.1.0-py311h0d48ccd_3.conda
@@ -2391,6 +2395,7 @@ environments:
       - conda: https://conda.anaconda.org/conda-forge/osx-arm64/c-ares-1.34.8-h74c22ad_2.conda
       - conda: https://conda.anaconda.org/conda-forge/osx-arm64/cairo-1.18.6-h580cee5_0.conda
       - conda: https://conda.anaconda.org/conda-forge/osx-arm64/cffi-2.1.1-py311h2e98d63_3.conda
+      - conda: https://conda.anaconda.org/conda-forge/osx-arm64/cftime-1.6.6-hf8a4dfd_0.conda
       - conda: https://conda.anaconda.org/conda-forge/osx-arm64/contourpy-1.3.3-py311h7d85929_4.conda
       - conda: https://conda.anaconda.org/conda-forge/osx-arm64/coverage-7.16.2-py311h19107a3_0.conda
       - conda: https://conda.anaconda.org/conda-forge/osx-arm64/cytoolz-1.1.0-py311h9f79745_3.conda
@@ -2618,6 +2623,7 @@ environments:
       - conda: https://conda.anaconda.org/conda-forge/win-64/c-ares-1.34.8-h6a83c73_2.conda
       - conda: https://conda.anaconda.org/conda-forge/win-64/cairo-1.18.6-h477c42c_0.conda
       - conda: https://conda.anaconda.org/conda-forge/win-64/cffi-2.1.1-py311h3485c13_3.conda
+      - conda: https://conda.anaconda.org/conda-forge/win-64/cftime-1.6.6-hee864c1_0.conda
       - conda: https://conda.anaconda.org/conda-forge/win-64/contourpy-1.3.3-py311h275cad7_4.conda
       - conda: https://conda.anaconda.org/conda-forge/win-64/coverage-7.16.2-py311h5b24874_0.conda
       - conda: https://conda.anaconda.org/conda-forge/win-64/cytoolz-1.1.0-py311h3485c13_3.conda
@@ -2773,6 +2779,7 @@ environments:
       - conda: https://conda.anaconda.org/conda-forge/linux-64/c-ares-1.34.8-hebe6cf0_2.conda
       - conda: https://conda.anaconda.org/conda-forge/linux-64/cairo-1.18.6-h3c89d7e_0.conda
       - conda: https://conda.anaconda.org/conda-forge/linux-64/cffi-2.1.1-py314h8d76f0c_3.conda
+      - conda: https://conda.anaconda.org/conda-forge/linux-64/cftime-1.6.5-py314h12ceea2_2.conda
       - conda: https://conda.anaconda.org/conda-forge/linux-64/contourpy-1.4.0-py314h5383ef5_1.conda
       - conda: https://conda.anaconda.org/conda-forge/linux-64/coverage-7.16.2-py314h93e9acf_0.conda
       - conda: https://conda.anaconda.org/conda-forge/linux-64/cytoolz-1.1.0-py314h89acca1_3.conda
@@ -3110,6 +3117,7 @@ environments:
       - conda: https://conda.anaconda.org/conda-forge/osx-arm64/c-ares-1.34.8-h74c22ad_2.conda
       - conda: https://conda.anaconda.org/conda-forge/osx-arm64/cairo-1.18.6-h580cee5_0.conda
       - conda: https://conda.anaconda.org/conda-forge/osx-arm64/cffi-2.1.1-py314h618e29d_3.conda
+      - conda: https://conda.anaconda.org/conda-forge/osx-arm64/cftime-1.6.5-py314hdd70a12_2.conda
       - conda: https://conda.anaconda.org/conda-forge/osx-arm64/contourpy-1.4.0-py314hb1acb19_1.conda
       - conda: https://conda.anaconda.org/conda-forge/osx-arm64/coverage-7.16.2-py314hae45268_0.conda
       - conda: https://conda.anaconda.org/conda-forge/osx-arm64/cytoolz-1.1.0-py314h61c6340_3.conda
@@ -3337,6 +3345,7 @@ environments:
       - conda: https://conda.anaconda.org/conda-forge/win-64/c-ares-1.34.8-h6a83c73_2.conda
       - conda: https://conda.anaconda.org/conda-forge/win-64/cairo-1.18.6-h477c42c_0.conda
       - conda: https://conda.anaconda.org/conda-forge/win-64/cffi-2.1.1-py314h5a2d7ad_3.conda
+      - conda: https://conda.anaconda.org/conda-forge/win-64/cftime-1.6.5-py314h2dcd201_2.conda
       - conda: https://conda.anaconda.org/conda-forge/win-64/contourpy-1.4.0-py314hf309875_1.conda
       - conda: https://conda.anaconda.org/conda-forge/win-64/coverage-7.16.2-py314h9aa99d3_0.conda
       - conda: https://conda.anaconda.org/conda-forge/win-64/cytoolz-1.1.0-py314h5a2d7ad_3.conda
@@ -5291,6 +5300,25 @@ packages:
   run_exports: {}
   size: 478160
   timestamp: 1789120066363
+- conda: https://conda.anaconda.org/conda-forge/linux-64/cftime-1.6.6-h92857cb_0.conda
+  noarch: python
+  sha256: b9faf806b5a346a53337f59edb52d97dadc96fab49b09e4173ad1c87325ab38c
+  md5: 26815349fa848e0affe53d5bd9ef0483
+  depends:
+  - python 3.11.*
+  - numpy >=2.0.0,<3
+  - libgcc >=15
+  - __glibc >=2.17,<3.0.a0
+  - _python_abi3_support 1.*
+  - cpython >=3.11
+  - numpy >=1.23,<3
+  license: MIT
+  license_family: MIT
+  purls:
+  - pkg:pypi/cftime?source=compressed-mapping
+  run_exports: {}
+  size: 486544
+  timestamp: 1789996382377
 - conda: https://conda.anaconda.org/conda-forge/linux-64/charset-normalizer-3.5.2-h1114479_0.conda
   noarch: python
   sha256: e4f04b45d68716fcc47c808aeacbf165f6f295fb91bd20b91aa38942b8d2cdc6
@@ -15247,6 +15275,24 @@ packages:
   run_exports: {}
   size: 418788
   timestamp: 1789120073656
+- conda: https://conda.anaconda.org/conda-forge/osx-arm64/cftime-1.6.6-hf8a4dfd_0.conda
+  noarch: python
+  sha256: c565b0125ad1f376d83027657aafde37f50be2d7d519daad2bea927caa9fada5
+  md5: ddad458c55cba74a7433847914c409d2
+  depends:
+  - python 3.11.*
+  - numpy >=2.0.0,<3
+  - __osx >=11.0
+  - _python_abi3_support 1.*
+  - cpython >=3.11
+  - numpy >=1.23,<3
+  license: MIT
+  license_family: MIT
+  purls:
+  - pkg:pypi/cftime?source=compressed-mapping
+  run_exports: {}
+  size: 448995
+  timestamp: 1789996435689
 - conda: https://conda.anaconda.org/conda-forge/osx-arm64/contourpy-1.3.3-py311h7d85929_4.conda
   sha256: 57b2c28cbb45e7dacb565541483d802a15c6beff5ccdabba19784a526191f4d3
   md5: bd91dd35d73638e5c0f520a18850f6ba
@@ -20405,6 +20451,44 @@ packages:
   run_exports: {}
   size: 402584
   timestamp: 1789120197639
+- conda: https://conda.anaconda.org/conda-forge/win-64/cftime-1.6.5-py314h2dcd201_2.conda
+  sha256: c69f1c9ca11e51530d2c1cf05061cdd13f293caaf6b8e06396211f3f6aae5730
+  md5: 2a2787d428919d0fbfa33091b4af290b
+  depends:
+  - numpy >=1.21.2
+  - numpy >=1.25,<3
+  - python >=3.14,<3.15.0a0
+  - python_abi 3.14.* *_cp314
+  - ucrt >=10.0.20348.0
+  - vc >=14.3,<15
+  - vc14_runtime >=14.44.35208
+  license: MIT
+  license_family: MIT
+  purls:
+  - pkg:pypi/cftime?source=compressed-mapping
+  run_exports: {}
+  size: 403032
+  timestamp: 1789120185829
+- conda: https://conda.anaconda.org/conda-forge/win-64/cftime-1.6.6-hee864c1_0.conda
+  noarch: python
+  sha256: 7deae7cfbe52ceb5b9670810907183d3e793b56050430055b516177861f0e165
+  md5: 23da95c5a7e3fe5f47471e95809ca5f7
+  depends:
+  - python 3.11.*
+  - numpy >=2.0.0,<3
+  - vc >=14.3,<15
+  - vc14_runtime >=14.44.35208
+  - ucrt >=10.0.20348.0
+  - _python_abi3_support 1.*
+  - cpython >=3.11
+  - numpy >=1.23,<3
+  license: MIT
+  license_family: MIT
+  purls:
+  - pkg:pypi/cftime?source=compressed-mapping
+  run_exports: {}
+  size: 425162
+  timestamp: 1789996414895
 - conda: https://conda.anaconda.org/conda-forge/win-64/charset-normalizer-3.5.2-h308a848_0.conda
   noarch: python
   sha256: 15ef0ff35f316beeb8d0ab045cb3c29655f0e38ed1ea49c56f5606d2ff2bc3e4
@@ -25535,6 +25619,7 @@ packages:
   name: woodpecker-esa-cci-plugin
   requires_dist:
   - cf-xarray
+  - cftime
   - pint
   - pydantic>=2
   - pyproj

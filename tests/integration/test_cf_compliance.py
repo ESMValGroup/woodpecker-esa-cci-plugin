@@ -12,9 +12,16 @@ cf = pytest.importorskip("compliance_checker.cf.cf")
 CHECKER = "cf:1.11"
 
 
+@pytest.mark.parametrize(
+    "decode_times", [True, False], ids=["decoded", "not_decoded"]
+)
 @pytest.mark.parametrize("case", CASES, ids=[c.variable_id for c in CASES])
-def test_complies_with_cf_conventions(case: Case, tmp_path: Path) -> None:
-    dataset = open_fixed_dataset(case)
+def test_complies_with_cf_conventions(
+    case: Case,
+    decode_times: bool,  # noqa: FBT001
+    tmp_path: Path,
+) -> None:
+    dataset = open_fixed_dataset(case, decode_times=decode_times)
     # The compliance checker only reads netCDF files, so write a small part
     # of the dataset, around the Dutch coast to cover both land and sea.
     subset = dataset.isel(time=slice(0, 2)).sel(
