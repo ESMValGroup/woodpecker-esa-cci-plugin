@@ -52,6 +52,9 @@ This plugin supports the following datasets from the ESA CCI Open Data Portal:
 - Water vapour: `ESACCI-WATERVAPOUR-L3C-TCWV-meris-005deg-2002-2017-fv3.2.zarr`
 - Sea surface temperature: `ESACCI-L4_GHRSST-SST-GMPE-GLOB_CDR2.0-1981-2016-v02.0-fv01.0.zarr`
 
+For the CMIP7 variables that other ESA CCI datasets could provide, see
+[docs/cmip7_variable_mapping.md](docs/cmip7_variable_mapping.md).
+
 ## Recipes and fixes
 
 A fix corrects one kind of problem, e.g. it converts variables to other
