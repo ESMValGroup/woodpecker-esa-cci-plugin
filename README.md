@@ -1,53 +1,91 @@
 # woodpecker-esa-cci-plugin
 
+[![codecov](https://codecov.io/gh/esmvalgroup/woodpecker-esa-cci-plugin/graph/badge.svg)](https://codecov.io/gh/esmvalgroup/woodpecker-esa-cci-plugin)
+
 ESA CCI fixes and recipes for
 [Woodpecker](https://github.com/roocs/woodpecker).
 
-This plugin registers:
+## Usage
 
-- Fix `esa_cci.add_tcwv_standard_name`: sets the CF `standard_name` on the
-  `tcwv` variable when it is missing.
-- Recipe `esa_cci.water_vapour`: combines the fix above with the core
-  `woodpecker.ensure_latitude_is_increasing` fix.
+Install this plugin together with woodpecker, and woodpecker finds its
+fixes and recipes automatically. For example, to fix the ESA CCI water
+vapour dataset from the
+[ESA CCI Open Data Portal](https://climate.esa.int/en/data/), which needs
+[s3fs](https://s3fs.readthedocs.io) to open the zarr store:
 
-## How it works
+```python
+import woodpecker
+import xarray as xr
+from woodpecker.io.backends.xr import XarrayInput
 
-- The `woodpecker.plugins` entry point in `pyproject.toml` points at the
-  `woodpecker_esa_cci_plugin` package. Woodpecker imports it at startup, and
-  the `@register_fix_function` decorator registers each fix.
-- Fix ids get their prefix from the package name:
-  `woodpecker_esa_cci_plugin` becomes `esa_cci`.
-- Recipes in `src/woodpecker_esa_cci_plugin/recipes/*.yaml` are discovered
-  automatically.
+data_id = "ESACCI-WATERVAPOUR-L3C-TCWV-meris-005deg-2002-2017-fv3.2.zarr"
+dataset = xr.open_zarr(
+    f"s3://esacci/{data_id}",
+    storage_options={
+        "anon": True,
+        "client_kwargs": {
+            "endpoint_url": "https://cci-ke-o.s3-ext.jc.rl.ac.uk",
+        },
+    },
+)
 
-## Development
+# Woodpecker selects the recipe by matching the recipe path patterns
+# against the input name, and fixes the dataset in place.
+woodpecker.recipe.apply(
+    XarrayInput(payload=dataset, name=data_id),
+    woodpecker.recipe.catalog(),
+    dry_run=False,
+)
 
-Requires [uv](https://docs.astral.sh/uv/).
-
-```bash
-uv sync                       # create .venv with runtime and dev dependencies
-uv run pre-commit install     # run ruff, mypy and basic checks on commit
-uv run pytest                 # run the tests
-uv run pre-commit run --all-files
+# Write the first month.
+dataset.isel(time=0).to_netcdf("prw.nc")
 ```
 
-Check that woodpecker picks up the plugin:
+The data stays lazy, so only the part that is written is downloaded. Use
+`woodpecker.recipe.check` instead of `woodpecker.recipe.apply` to list the
+problems without fixing them.
+
+## Supported datasets
+
+This plugin supports the following datasets from the ESA CCI Open Data Portal:
+
+- Water vapour: `ESACCI-WATERVAPOUR-L3C-TCWV-meris-005deg-2002-2017-fv3.2.zarr`
+- Sea surface temperature: `ESACCI-L4_GHRSST-SST-GMPE-GLOB_CDR2.0-1981-2016-v02.0-fv01.0.zarr`
+
+## Recipes and fixes
+
+A fix corrects one kind of problem, e.g. it converts variables to other
+units or removes attributes that are not allowed by the CF conventions. Most
+fixes have options that configure what they do, such as the variables and
+the units to convert them to. Each fix can check a dataset and report the
+problems it finds, or apply the correction.
+
+A recipe contains the fixes for one dataset: a list of steps, each of
+which is a fix with its options, that runs in order. Woodpecker selects the
+recipe for a dataset by matching the path patterns of the recipe against
+the name of the input, e.g. `*ESACCI-WATERVAPOUR-*`. This plugin provides
+one recipe for each supported dataset.
+
+To list the recipes, run:
 
 ```bash
-uv run woodpecker list-fixes --dataset ESA-CCI
-uv run woodpecker list-recipes
+pixi run woodpecker list-recipes
 ```
 
-Versions come from git tags via setuptools-scm, using the `calver-by-date`
-scheme (e.g. `26.9.28`).
+This also lists the recipes that come with woodpecker itself. Add
+`--format json` to show the full recipes, including their path patterns and
+the options of each step.
 
-## Using this repository as a template
+To list the fixes this plugin provides, with a description of each, run:
 
-1. Rename the package directory `src/woodpecker_esa_cci_plugin` to
-   `src/woodpecker_<name>_plugin`. The fix id prefix becomes `<name>`.
-2. Update the project name, entry point and package-data key in
-   `pyproject.toml`.
-3. Replace the example fix and recipe, and update the tests.
+```bash
+pixi run woodpecker list-fixes --dataset ESA-CCI
+```
+
+## Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for how to set up a development
+environment and run the tests.
 
 ## License
 

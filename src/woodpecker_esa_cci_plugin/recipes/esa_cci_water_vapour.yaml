@@ -5,5 +5,88 @@ recipes:
       path_patterns:
         - "*ESACCI-WATERVAPOUR-*"
     steps:
-      - id: esa_cci.add_tcwv_standard_name
+      # Steps run in the order listed here. The variables are renamed last,
+      # so all steps use the original variable names. Woodpecker allows each
+      # fix only once per recipe.
+      # Packing and the range attributes become invalid when the values
+      # change, so remove them first. The time encoding is kept.
+      - id: esa_cci.remove_packing
+      - id: esa_cci.remove_range_attributes
+      - id: esa_cci.set_attributes
+        options:
+          attributes:
+            tcwv:
+              standard_name: atmosphere_mass_content_of_water_vapor
+              long_name: Water Vapor Path
+              cell_methods: "area: time: mean"
+              # Keeps crs when selecting variables.
+              grid_mapping: crs
+            time:
+              # xarray decodes the times to numpy datetime64 or cftime,
+              # which do not count leap seconds. Times that are not decoded
+              # are converted with them by esa_cci.set_time_units.
+              units_metadata: "leap_seconds: none"
+      - id: esa_cci.remove_attributes
+        options:
+          attributes:
+            # Not valid CF standard_names.
+            crs: [standard_name]
+            stdv: [standard_name]
+            num_obs: [standard_name]
+            # Bounds variables inherit the standard_name and long_name of
+            # their coordinate, and CF recommends leaving them out.
+            lat_bnds: &bounds [standard_name, long_name, comment]
+            lon_bnds: *bounds
+            time_bnds: *bounds
+      - id: esa_cci.set_global_attributes
+        options:
+          attributes:
+            Conventions: CF-1.11
+            # The CMIP7 variable, after renaming.
+            variable_id: prw
+            branded_variable: prw_tavg-u-hxy-u
+            frequency: mon
+            realm: atmos
+      - id: esa_cci.remove_global_attributes
+        options:
+          # CF attribute names cannot contain hyphens.
+          attributes: [keywords-vocabulary, naming-authority]
+      - id: esa_cci.set_time_units
+        options:
+          coordinate: time
+          units: days since 1850-01-01
+          # xarray decodes the times to numpy datetime64, which uses the
+          # proleptic Gregorian calendar.
+          calendar: proleptic_gregorian
+      # The time points are on the 15th of each month, and the bounds leave
+      # out the last day of each month.
+      - id: esa_cci.center_monthly_time
+        options:
+          coordinate: time
+      - id: esa_cci.convert_units
+        options:
+          units:
+            tcwv: kg m-2
+      # CMIP7 stores data in single precision, and coordinates in double
+      # precision.
+      - id: esa_cci.set_data_types
+        options:
+          data_types:
+            tcwv: float32
+            lat_bnds: float64
+            lon_bnds: float64
+      - id: esa_cci.grid_mapping_from_wkt
+        options:
+          variable: crs
+          wkt_attribute: wkt
       - id: woodpecker.ensure_latitude_is_increasing
+      - id: esa_cci.normalize_longitude
+        options:
+          coordinate: lon
+      - id: esa_cci.select_variables
+        options:
+          variables: [tcwv]
+      - id: woodpecker.rename_variables
+        options:
+          mapping:
+            prw: [tcwv]

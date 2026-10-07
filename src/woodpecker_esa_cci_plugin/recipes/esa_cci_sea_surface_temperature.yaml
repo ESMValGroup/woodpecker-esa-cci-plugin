@@ -1,0 +1,74 @@
+recipes:
+  - id: esa_cci.sea_surface_temperature
+    description: Prepare ESA CCI sea surface temperature (SST) datasets
+    match:
+      path_patterns:
+        - "*ESACCI-*-SST-*"
+    steps:
+      # Steps run in the order listed here. The variables are renamed last,
+      # so all steps use the original variable names. Woodpecker allows each
+      # fix only once per recipe.
+      # Packing and the range attributes become invalid when the values
+      # change, so remove them first. The time encoding is kept.
+      - id: esa_cci.remove_packing
+      - id: esa_cci.remove_range_attributes
+      - id: esa_cci.set_attributes
+        options:
+          attributes:
+            analysed_sst:
+              standard_name: sea_surface_temperature
+              long_name: Sea Surface Temperature
+              cell_methods: "area: mean where sea time: mean"
+              # The temperature is not a temperature difference.
+              units_metadata: "temperature: on_scale"
+            time:
+              # xarray decodes the times to numpy datetime64 or cftime,
+              # which do not count leap seconds. Times that are not decoded
+              # are converted with them by esa_cci.set_time_units.
+              units_metadata: "leap_seconds: none"
+      - id: esa_cci.set_global_attributes
+        options:
+          attributes:
+            Conventions: CF-1.11
+            # The CMIP7 variable, after renaming.
+            variable_id: tos
+            branded_variable: tos_tavg-u-hxy-sea
+            frequency: day
+            realm: ocean
+      - id: esa_cci.remove_global_attributes
+        options:
+          # Empty.
+          attributes: [comment]
+      - id: esa_cci.convert_units
+        options:
+          units:
+            analysed_sst: degC
+      # CMIP7 stores data in single precision, and coordinates in double
+      # precision.
+      - id: esa_cci.set_data_types
+        options:
+          data_types:
+            analysed_sst: float32
+            lat: float64
+            lon: float64
+      # Before normalizing the longitude, so the bounds are wrapped too.
+      - id: esa_cci.add_bounds
+        options:
+          coordinates: [lat, lon]
+      - id: esa_cci.set_time_units
+        options:
+          coordinate: time
+          units: days since 1850-01-01
+          # xarray decodes the times to numpy datetime64, which uses the
+          # proleptic Gregorian calendar.
+          calendar: proleptic_gregorian
+      - id: esa_cci.normalize_longitude
+        options:
+          coordinate: lon
+      - id: esa_cci.select_variables
+        options:
+          variables: [analysed_sst]
+      - id: woodpecker.rename_variables
+        options:
+          mapping:
+            tos: [analysed_sst]
