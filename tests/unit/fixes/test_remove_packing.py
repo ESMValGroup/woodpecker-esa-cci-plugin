@@ -4,16 +4,7 @@ import woodpecker
 import xarray as xr
 from woodpecker.fixes.registry import FixFunctionRegistry
 
-FIX_ID = "esa_cci.remove_encoding"
-PACKING_KEYS = [
-    "_FillValue",
-    "_Unsigned",
-    "add_offset",
-    "dtype",
-    "missing_value",
-    "scale_factor",
-]
-OPTIONS = {FIX_ID: {"keys": PACKING_KEYS}}
+FIX_ID = "esa_cci.remove_packing"
 # Packed like the ESA CCI SST data.
 PACKING = {
     "dtype": np.dtype("int16"),
@@ -33,44 +24,36 @@ def test_fix_is_registered_through_entry_point() -> None:
     assert FIX_ID in FixFunctionRegistry.registered_ids()
 
 
-def test_unconfigured_fix_does_nothing(dataset: xr.Dataset) -> None:
-    assert not woodpecker.check(dataset, fixes=FIX_ID)
-
-
-def test_encoding_is_removed(dataset: xr.Dataset) -> None:
+def test_packing_is_removed(dataset: xr.Dataset) -> None:
     original = {
         name: dict(variable.encoding)
         for name, variable in dataset.variables.items()
     }
 
-    findings = woodpecker.check(dataset, fixes=FIX_ID, options=OPTIONS)
+    findings = woodpecker.check(dataset, fixes=FIX_ID)
     messages = [finding["message"] for finding in findings.findings]
     assert "tcwv has encoding _FillValue, add_offset, dtype, scale_factor" in (
         messages
     )
 
-    preview = woodpecker.apply(
-        dataset, fixes=FIX_ID, dry_run=True, options=OPTIONS
-    )
+    preview = woodpecker.apply(dataset, fixes=FIX_ID, dry_run=True)
     assert preview.changed == 1
     assert dataset["tcwv"].encoding == original["tcwv"]
 
-    result = woodpecker.apply(
-        dataset, fixes=FIX_ID, dry_run=False, options=OPTIONS
-    )
+    result = woodpecker.apply(dataset, fixes=FIX_ID, dry_run=False)
     assert result.changed == 1
-    # Encoding that is not configured, such as chunks, is kept.
+    # Encoding that is not packing, such as chunks, is kept.
     assert dataset["tcwv"].encoding == {"chunks": (1, 2, 4)}
     for name in ("lat", "lon_bnds", "crs"):
         assert "dtype" not in dataset[name].encoding
     # The encoding of decoded times defines how they are written.
     for name in ("time", "time_bnds"):
         assert dataset[name].encoding == original[name]
-    assert not woodpecker.check(dataset, fixes=FIX_ID, options=OPTIONS)
+    assert not woodpecker.check(dataset, fixes=FIX_ID)
 
 
 def test_changed_values_are_written_correctly(dataset: xr.Dataset) -> None:
-    woodpecker.apply(dataset, fixes=FIX_ID, dry_run=False, options=OPTIONS)
+    woodpecker.apply(dataset, fixes=FIX_ID, dry_run=False)
     # Values that do not fit the original packing, changed in place, which
     # keeps the encoding.
     variable = dataset["tcwv"].variable

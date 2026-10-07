@@ -7,19 +7,17 @@ ESA CCI fixes and recipes for
 
 This plugin registers:
 
-- Fix `esa_cci.remove_encoding`: removes the encoding keys configured with
-  the `keys` option from all variables, except variables with decoded times,
-  whose encoding defines the units and calendar they are written in. The
-  recipes use it to remove the packing encoding (`dtype`, `scale_factor`,
-  `add_offset`, `_FillValue`, `missing_value` and `_Unsigned`), because
-  xarray keeps it when values change through `copy(data=...)` or in place,
-  and then writes values that no longer fit. The recipe output is therefore
-  not packed, unless the encoding is set again when writing.
-- Fix `esa_cci.remove_attributes`: removes the attributes configured with
-  the `attributes` option from all variables. The recipes use it to remove
-  the range attributes `actual_range`, `valid_min`, `valid_max` and
-  `valid_range`, which xarray does not use and which become invalid as soon
-  as the values change.
+- Fix `esa_cci.remove_packing`: removes the packing encoding (`dtype`,
+  `scale_factor`, `add_offset`, `_FillValue`, `missing_value` and
+  `_Unsigned`) from all variables, except variables with decoded times, whose
+  encoding defines the units and calendar they are written in. xarray keeps
+  the packing encoding when values change through `copy(data=...)` or in
+  place, and then writes values that no longer fit. The recipe output is
+  therefore not packed, unless the encoding is set again when writing.
+- Fix `esa_cci.remove_range_attributes`: removes the range attributes
+  `actual_range`, `valid_min`, `valid_max` and `valid_range` from all
+  variables. xarray does not use them, and they become invalid as soon as
+  the values change.
 - Fix `esa_cci.set_attributes`: sets attributes on variables where they are
   missing or wrong. The correct values are configured with the `attributes`
   option, a mapping from variable name to a mapping of attribute names to

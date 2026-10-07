@@ -3,10 +3,11 @@ import woodpecker
 import xarray as xr
 from woodpecker.fixes.registry import FixFunctionRegistry
 
-from woodpecker_esa_cci_plugin.fixes.remove_attributes import RANGE_ATTRIBUTES
+from woodpecker_esa_cci_plugin.fixes.remove_range_attributes import (
+    RANGE_ATTRIBUTES,
+)
 
-FIX_ID = "esa_cci.remove_attributes"
-OPTIONS = {FIX_ID: {"attributes": list(RANGE_ATTRIBUTES)}}
+FIX_ID = "esa_cci.remove_range_attributes"
 
 
 @pytest.fixture
@@ -33,27 +34,19 @@ def test_fix_is_registered_through_entry_point() -> None:
     assert FIX_ID in FixFunctionRegistry.registered_ids()
 
 
-def test_unconfigured_fix_does_nothing(dataset: xr.Dataset) -> None:
-    assert not woodpecker.check(dataset, fixes=FIX_ID)
-
-
 def test_attributes_are_removed(dataset: xr.Dataset) -> None:
     before = _range_attributes(dataset)
     assert {"tcwv", "lat", "lon", "lon_bnds"} <= set(before)
 
-    findings = woodpecker.check(dataset, fixes=FIX_ID, options=OPTIONS)
+    findings = woodpecker.check(dataset, fixes=FIX_ID)
     assert findings.fix_ids == (FIX_ID,) * len(before)
 
-    preview = woodpecker.apply(
-        dataset, fixes=FIX_ID, dry_run=True, options=OPTIONS
-    )
+    preview = woodpecker.apply(dataset, fixes=FIX_ID, dry_run=True)
     assert preview.changed == 1
     assert _range_attributes(dataset) == before
 
-    result = woodpecker.apply(
-        dataset, fixes=FIX_ID, dry_run=False, options=OPTIONS
-    )
+    result = woodpecker.apply(dataset, fixes=FIX_ID, dry_run=False)
     assert result.changed == 1
     assert not _range_attributes(dataset)
     assert dataset["tcwv"].attrs["units"] == "kg/m2"
-    assert not woodpecker.check(dataset, fixes=FIX_ID, options=OPTIONS)
+    assert not woodpecker.check(dataset, fixes=FIX_ID)

@@ -5,7 +5,9 @@ import xarray as xr
 from pint.errors import DimensionalityError
 from woodpecker.fixes.registry import FixFunctionRegistry
 
-from woodpecker_esa_cci_plugin.fixes.remove_attributes import RANGE_ATTRIBUTES
+from woodpecker_esa_cci_plugin.fixes.remove_range_attributes import (
+    RANGE_ATTRIBUTES,
+)
 
 FIX_ID = "esa_cci.convert_units"
 OPTIONS = {FIX_ID: {"units": {"tcwv": "kg m-2"}}}

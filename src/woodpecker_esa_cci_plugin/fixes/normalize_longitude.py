@@ -10,7 +10,7 @@ from woodpecker.fixes.registry import register_fix_function
 
 from woodpecker_esa_cci_plugin.configurable_fix import ConfigurableFix, Options
 
-from .remove_attributes import remove_range_attributes
+from .remove_range_attributes import remove_range_attributes
 
 if TYPE_CHECKING:
     import xarray as xr

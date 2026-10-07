@@ -7,7 +7,10 @@ import xarray as xr
 import yaml
 from woodpecker.fixes.registry import FixFunctionRegistry
 
-from woodpecker_esa_cci_plugin.fixes.remove_attributes import RANGE_ATTRIBUTES
+from woodpecker_esa_cci_plugin.fixes.remove_packing import PACKING_KEYS
+from woodpecker_esa_cci_plugin.fixes.remove_range_attributes import (
+    RANGE_ATTRIBUTES,
+)
 
 RECIPE_ID = "esa_cci.water_vapour"
 # The ids of all recipes shipped with the plugin.
@@ -16,14 +19,6 @@ RECIPE_IDS = sorted(
     for path in (files("woodpecker_esa_cci_plugin") / "recipes").iterdir()
     if path.name.endswith(".yaml")
     for recipe in yaml.safe_load(path.read_text(encoding="utf-8"))["recipes"]
-)
-PACKING_KEYS = (
-    "_FillValue",
-    "_Unsigned",
-    "add_offset",
-    "dtype",
-    "missing_value",
-    "scale_factor",
 )
 
 
@@ -55,8 +50,8 @@ def test_recipe_fixes_dataset(tcwv_dataset: xr.Dataset) -> None:
         "woodpecker.rename_variables",
         "woodpecker.ensure_latitude_is_increasing",
         "esa_cci.normalize_longitude",
-        "esa_cci.remove_attributes",
-        "esa_cci.remove_encoding",
+        "esa_cci.remove_range_attributes",
+        "esa_cci.remove_packing",
         "esa_cci.set_global_attributes",
         "esa_cci.set_time_units",
     }

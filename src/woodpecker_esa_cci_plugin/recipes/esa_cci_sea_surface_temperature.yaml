@@ -10,13 +10,8 @@ recipes:
       # fix only once per recipe.
       # Packing and the range attributes become invalid when the values
       # change, so remove them first. The time encoding is kept.
-      - id: esa_cci.remove_encoding
-        options:
-          keys:
-            [_FillValue, _Unsigned, add_offset, dtype, missing_value, scale_factor]
-      - id: esa_cci.remove_attributes
-        options:
-          attributes: [actual_range, valid_max, valid_min, valid_range]
+      - id: esa_cci.remove_packing
+      - id: esa_cci.remove_range_attributes
       - id: esa_cci.set_attributes
         options:
           attributes:

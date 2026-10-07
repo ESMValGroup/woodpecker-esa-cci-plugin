@@ -1,4 +1,4 @@
-"""Remove attributes from all ESA CCI variables."""
+"""Remove the range attributes from all ESA CCI variables."""
 
 from __future__ import annotations
 
@@ -7,11 +7,7 @@ from typing import TYPE_CHECKING
 from woodpecker.fixes.labels import Labels
 from woodpecker.fixes.registry import register_fix_function
 
-from woodpecker_esa_cci_plugin.configurable_fix import (
-    ConfigurableFix,
-    NonEmptyNames,
-    Options,
-)
+from woodpecker_esa_cci_plugin.configurable_fix import ConfigurableFix, Options
 
 if TYPE_CHECKING:
     from collections.abc import Hashable
@@ -29,41 +25,31 @@ def remove_range_attributes(variable: xr.Variable) -> None:
         variable.attrs.pop(key, None)
 
 
-class RemoveAttributesOptions(Options):
-    """Options of :class:`RemoveAttributes`."""
-
-    attributes: NonEmptyNames | None = None
-
-
 @register_fix_function
-class RemoveAttributes(ConfigurableFix[RemoveAttributesOptions]):
-    """Remove attributes from all variables.
+class RemoveRangeAttributes(ConfigurableFix[Options]):
+    """Remove the range attributes from all variables.
 
-    The attributes are configured with the ``attributes`` option, a list of
-    attribute names. They are removed from all data variables and
-    coordinates that have them. Use this for attributes that are hard to
-    keep correct, such as the range attributes ``actual_range``,
-    ``valid_min``, ``valid_max`` and ``valid_range``: xarray does not use
-    them, and they become invalid as soon as the values change.
-
-    xarray stores ``_FillValue`` and ``missing_value`` in the encoding when
-    it decodes a dataset, so use ``esa_cci.remove_encoding`` for those.
+    The range attributes ``actual_range``, ``valid_min``, ``valid_max`` and
+    ``valid_range`` are removed from all data variables and coordinates that
+    have them. xarray does not use them, and they become invalid as soon as
+    the values change.
     """
 
-    suffix = "remove_attributes"
-    name = "Remove attributes"
-    description = "Removes the configured attributes from all variables."
+    suffix = "remove_range_attributes"
+    name = "Remove range attributes"
+    description = "Removes the range attributes from all variables."
     categories = ["metadata"]  # noqa: RUF012
     priority = 30
     dataset = "ESA-CCI"
     labels = [Labels.RISK_METADATA_ONLY]  # noqa: RUF012
-    options_model = RemoveAttributesOptions
+    options_model = Options
 
     def _wrong(self, dataset: xr.Dataset) -> dict[Hashable, list[str]]:
-        attributes = self.options.attributes or []
         wrong = {}
         for name, variable in dataset.variables.items():
-            if keys := [key for key in attributes if key in variable.attrs]:
+            if keys := [
+                key for key in RANGE_ATTRIBUTES if key in variable.attrs
+            ]:
                 wrong[name] = keys
         return wrong
 
