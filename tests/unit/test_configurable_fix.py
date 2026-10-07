@@ -10,7 +10,7 @@ FIX_IDS = [
 
 
 def test_all_plugin_fixes_are_found() -> None:
-    assert len(FIX_IDS) == 9
+    assert len(FIX_IDS) == 11
 
 
 @pytest.mark.parametrize("fix_id", FIX_IDS)

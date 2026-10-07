@@ -50,6 +50,8 @@ def test_recipe_fixes_dataset(tcwv_dataset: xr.Dataset) -> None:
         "woodpecker.rename_variables",
         "woodpecker.ensure_latitude_is_increasing",
         "esa_cci.normalize_longitude",
+        "esa_cci.remove_attributes",
+        "esa_cci.remove_global_attributes",
         "esa_cci.remove_range_attributes",
         "esa_cci.remove_packing",
         "esa_cci.set_global_attributes",
@@ -94,9 +96,6 @@ def test_recipe_fixes_dataset(tcwv_dataset: xr.Dataset) -> None:
     attrs = tcwv_dataset.attrs
     assert attrs["Conventions"] == "CF-1.11"
     assert not [key for key in attrs if "-" in key]
-    assert (
-        attrs["keywords_vocabulary"] == (original.attrs["keywords-vocabulary"])
-    )
     crs_attrs = tcwv_dataset["crs"].attrs
     assert "standard_name" not in crs_attrs
     assert "wkt" not in crs_attrs

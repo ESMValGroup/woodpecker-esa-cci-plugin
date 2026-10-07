@@ -6,7 +6,7 @@ import copy
 from typing import TYPE_CHECKING, Annotated, Any
 
 import numpy as np
-from pydantic import Field
+from pydantic import AfterValidator, Field
 from woodpecker.fixes.labels import Labels
 from woodpecker.fixes.registry import register_fix_function
 
@@ -27,15 +27,34 @@ def _equal(current: Any, value: Any) -> bool:  # noqa: ANN401
         return bool(np.array_equal(current, value))
 
 
+def _reject_none(attributes: dict[str, Any]) -> dict[str, Any]:
+    """Raise an error if an attribute value is ``None``.
+
+    Removing attributes is done by ``esa_cci.remove_attributes`` and
+    ``esa_cci.remove_global_attributes``, so a ``null`` value in a recipe is
+    not mistaken for a value to set.
+    """
+    if keys := [key for key, value in attributes.items() if value is None]:
+        msg = (
+            f"Attributes {', '.join(keys)} have no value, use "
+            "esa_cci.remove_attributes or esa_cci.remove_global_attributes "
+            "to remove attributes"
+        )
+        raise ValueError(msg)
+    return attributes
+
+
+# A non-empty mapping from attribute name to value.
+Attributes = Annotated[
+    dict[str, Any], Field(min_length=1), AfterValidator(_reject_none)
+]
+
+
 class SetAttributesOptions(Options):
     """Options of :class:`SetAttributes`."""
 
     attributes: (
-        Annotated[
-            dict[str, Annotated[dict[str, Any], Field(min_length=1)]],
-            Field(min_length=1),
-        ]
-        | None
+        Annotated[dict[str, Attributes], Field(min_length=1)] | None
     ) = None
 
 
@@ -45,16 +64,15 @@ class SetAttributes(ConfigurableFix[SetAttributesOptions]):
 
     The correct attributes are configured with the ``attributes`` option,
     a mapping from variable name to a mapping of attribute names to values.
-    Attributes with the value ``None`` are removed. Variables that do not
-    exist raise an error.
+    Variables that do not exist raise an error. Use
+    ``esa_cci.remove_attributes`` to remove attributes.
     """
 
     suffix = "set_attributes"
     name = "Set attributes"
     description = (
         "Sets attributes on the configured variables when they are missing "
-        "or differ from the configured values, and removes attributes "
-        "configured as None."
+        "or differ from the configured values."
     )
     categories = ["metadata"]  # noqa: RUF012
     priority = 50
@@ -85,7 +103,7 @@ class SetAttributes(ConfigurableFix[SetAttributesOptions]):
         """Return a finding message for each detected problem."""
         return [
             f"{var} has {key} {dataset[var].attrs.get(key)!r}, "
-            + ("expected no value" if value is None else f"expected {value!r}")
+            f"expected {value!r}"
             for var, changes in self._wrong(dataset).items()
             for key, value in changes.items()
         ]
@@ -101,10 +119,7 @@ class SetAttributes(ConfigurableFix[SetAttributesOptions]):
             for var, changes in wrong.items():
                 attrs = dataset[var].attrs
                 for key, value in changes.items():
-                    if value is None:
-                        del attrs[key]
-                    else:
-                        # Copy, so datasets do not share lists or dicts with
-                        # the recipe options.
-                        attrs[key] = copy.deepcopy(value)
+                    # Copy, so datasets do not share lists or dicts with the
+                    # recipe options.
+                    attrs[key] = copy.deepcopy(value)
         return bool(wrong)

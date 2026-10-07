@@ -21,7 +21,10 @@ This plugin registers:
 - Fix `esa_cci.set_attributes`: sets attributes on variables where they are
   missing or wrong. The correct values are configured with the `attributes`
   option, a mapping from variable name to a mapping of attribute names to
-  values. Attributes set to `null` are removed.
+  values.
+- Fix `esa_cci.remove_attributes`: removes the attributes configured with
+  the `attributes` option, a mapping from variable name to a list of
+  attribute names.
 - Fix `esa_cci.select_variables`: drops all data variables except the ones
   configured with the `variables` option and the variables they refer to
   through CF attributes, such as ancillary variables and coordinate bounds.
@@ -46,8 +49,8 @@ This plugin registers:
   attributes; sets the `standard_name`, `long_name`, `cell_methods` and
   `grid_mapping` of `tcwv` and converts it to `kg m-2`; removes invalid
   standard names and the attributes that bounds variables inherit from their
-  coordinates; replaces hyphens in global attribute names and sets
-  `Conventions` to `CF-1.11`; stores time in the `standard` calendar and
+  coordinates; removes the global attributes with hyphens in their names,
+  which CF does not allow, and sets `Conventions` to `CF-1.11`; stores time in the `standard` calendar and
   marks it as not counting leap seconds; makes `crs` a CF grid mapping;
   selects `tcwv`; makes latitude increasing; wraps longitude to [0, 360); and
   renames `tcwv` to `prw`. It combines the fixes above with the core
@@ -59,11 +62,11 @@ This plugin registers:
   are stored in to the `units` option, e.g. `days since 1850-01-01`, and the
   `calendar` option, e.g. `standard`. The time values do not change, only
   how they are written.
-- Fix `esa_cci.set_global_attributes`: renames the global attributes
-  configured with the `rename` option, a mapping from current to new name,
-  and then sets the ones configured with the `attributes` option, a mapping
-  from attribute name to value, where they are missing or wrong. Attributes
-  set to `null` are removed.
+- Fix `esa_cci.set_global_attributes`: sets the global attributes
+  configured with the `attributes` option, a mapping from attribute name to
+  value, where they are missing or wrong.
+- Fix `esa_cci.remove_global_attributes`: removes the global attributes
+  configured with the `attributes` option, a list of attribute names.
 - Recipe `esa_cci.sea_surface_temperature`: removes the packing encoding
   and range attributes; sets the `standard_name`, `long_name`,
   `cell_methods` and `units_metadata` of `analysed_sst` and converts it to

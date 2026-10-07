@@ -25,29 +25,26 @@ recipes:
               # The times are decoded to numpy datetime64, which does not
               # count leap seconds.
               units_metadata: "leap_seconds: none"
+      - id: esa_cci.remove_attributes
+        options:
+          attributes:
             # Not valid CF standard_names.
-            crs:
-              standard_name: null
-            stdv:
-              standard_name: null
-            num_obs:
-              standard_name: null
+            crs: [standard_name]
+            stdv: [standard_name]
+            num_obs: [standard_name]
             # Bounds variables inherit the standard_name and long_name of
             # their coordinate, and CF recommends leaving them out.
-            lat_bnds: &bounds
-              standard_name: null
-              long_name: null
-              comment: null
+            lat_bnds: &bounds [standard_name, long_name, comment]
             lon_bnds: *bounds
             time_bnds: *bounds
       - id: esa_cci.set_global_attributes
         options:
-          rename:
-            # CF attribute names cannot contain hyphens.
-            keywords-vocabulary: keywords_vocabulary
-            naming-authority: naming_authority
           attributes:
             Conventions: CF-1.11
+      - id: esa_cci.remove_global_attributes
+        options:
+          # CF attribute names cannot contain hyphens.
+          attributes: [keywords-vocabulary, naming-authority]
       - id: esa_cci.set_time_units
         options:
           coordinate: time

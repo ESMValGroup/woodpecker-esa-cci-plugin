@@ -29,8 +29,10 @@ recipes:
         options:
           attributes:
             Conventions: CF-1.11
-            # Empty.
-            comment: null
+      - id: esa_cci.remove_global_attributes
+        options:
+          # Empty.
+          attributes: [comment]
       - id: esa_cci.convert_units
         options:
           units:

@@ -2,6 +2,7 @@ import numpy as np
 import pytest
 import woodpecker
 import xarray as xr
+from pydantic import ValidationError
 from woodpecker.fixes.registry import FixFunctionRegistry
 
 FIX_ID = "esa_cci.set_attributes"
@@ -61,17 +62,11 @@ def test_attributes_are_detected_and_fixed(
     assert not woodpecker.check(clean_dataset, fixes=FIX_ID, options=OPTIONS)
 
 
-def test_attribute_set_to_none_is_removed(clean_dataset: xr.Dataset) -> None:
-    options = {FIX_ID: {"attributes": {"tcwv": {"long_name": None}}}}
+def test_attribute_without_value_raises() -> None:
+    fix = FixFunctionRegistry.instantiate(FIX_ID)
 
-    findings = woodpecker.check(clean_dataset, fixes=FIX_ID, options=options)
-    assert findings.fix_ids == (FIX_ID,)
-
-    woodpecker.apply(
-        clean_dataset, fixes=FIX_ID, dry_run=False, options=options
-    )
-    assert "long_name" not in clean_dataset["tcwv"].attrs
-    assert not woodpecker.check(clean_dataset, fixes=FIX_ID, options=options)
+    with pytest.raises(ValidationError, match="long_name have no value"):
+        fix.configure({"attributes": {"tcwv": {"long_name": None}}})
 
 
 @pytest.mark.parametrize(
