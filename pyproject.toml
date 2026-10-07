@@ -70,6 +70,12 @@ esmvalcore = ">=2.15"
 ncdata = "*"
 s3fs = "*"
 compliance-checker = "*"
+cc-plugin-wcrp = "*"
+
+# Store the CMIP7 vocabularies that cc-plugin-wcrp checks against in the
+# project, instead of the home directory.
+[tool.pixi.feature.online.activation.env]
+ESGVOC_HOME = "$PIXI_PROJECT_ROOT/.pixi/esgvoc"
 
 # Lowest and most recent supported Python version.
 [tool.pixi.feature.py311.dependencies]

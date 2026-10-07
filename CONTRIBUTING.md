@@ -36,6 +36,12 @@ Other environments, selected with `-e`:
   with iris. These tests need internet access.
   ESMValCore needs zarr 3 and xcube-cci needs zarr 2, so these tests open the
   ESA CCI zarr store directly with s3fs.
+  It also includes the CMIP7 checker of
+  [cc-plugin-wcrp](https://github.com/ESGF/cc-plugin-wcrp), which checks the
+  recipe output against the CMIP7 vocabularies, except for the global
+  attributes and how the data is stored. Download the vocabularies once,
+  into `.pixi/esgvoc`, with
+  `pixi run -e online esgvoc use cmip7@latest universe@latest`.
 - `xcube`: includes [xcube](https://github.com/xcube-dev/xcube), its
   [ESA CCI plugin](https://github.com/esa-cci/xcube-cci), ncdata and iris, e.g.
   `pixi run -e xcube test`. This also runs the integration tests in

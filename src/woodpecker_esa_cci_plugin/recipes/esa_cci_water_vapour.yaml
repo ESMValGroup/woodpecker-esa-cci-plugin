@@ -42,6 +42,11 @@ recipes:
         options:
           attributes:
             Conventions: CF-1.11
+            # The CMIP7 variable, after renaming.
+            variable_id: prw
+            branded_variable: prw_tavg-u-hxy-u
+            frequency: mon
+            realm: atmos
       - id: esa_cci.remove_global_attributes
         options:
           # CF attribute names cannot contain hyphens.
@@ -49,12 +54,27 @@ recipes:
       - id: esa_cci.set_time_units
         options:
           coordinate: time
-          # The preferred name of the gregorian calendar.
-          calendar: standard
+          units: days since 1850-01-01
+          # xarray decodes the times to numpy datetime64, which uses the
+          # proleptic Gregorian calendar.
+          calendar: proleptic_gregorian
+      # The time points are on the 15th of each month, and the bounds leave
+      # out the last day of each month.
+      - id: esa_cci.center_monthly_time
+        options:
+          coordinate: time
       - id: esa_cci.convert_units
         options:
           units:
             tcwv: kg m-2
+      # CMIP7 stores data in single precision, and coordinates in double
+      # precision.
+      - id: esa_cci.set_data_types
+        options:
+          data_types:
+            tcwv: float32
+            lat_bnds: float64
+            lon_bnds: float64
       - id: esa_cci.grid_mapping_from_wkt
         options:
           variable: crs

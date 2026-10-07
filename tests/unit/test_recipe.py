@@ -55,6 +55,8 @@ def test_recipe_fixes_dataset(tcwv_dataset: xr.Dataset) -> None:
         "esa_cci.remove_range_attributes",
         "esa_cci.remove_packing",
         "esa_cci.set_global_attributes",
+        "esa_cci.set_data_types",
+        "esa_cci.center_monthly_time",
         "esa_cci.set_time_units",
     }
 
@@ -118,19 +120,27 @@ def test_recipe_fixes_dataset(tcwv_dataset: xr.Dataset) -> None:
         tcwv_dataset["lon_bnds"][:, 0], np.arange(0.0, 360.0, 45.0)
     )
 
+    # The time points are in the middle of whole calendar months.
+    time_bnds = tcwv_dataset["time_bnds"].to_numpy()
+    np.testing.assert_array_equal(time_bnds[1:, 0], time_bnds[:-1, 1])
+    assert tcwv_dataset["time"][0] == np.datetime64("2002-07-16T12:00")
+
     # The bounds variables inherit their attributes from the coordinates.
     for name in ("lat_bnds", "lon_bnds", "time_bnds"):
         attrs = tcwv_dataset[name].attrs
         for key in ("standard_name", "long_name", "comment"):
             assert key not in attrs
 
-    # Range attributes and packing are removed, but the time encoding stays.
+    # Range attributes and packing are removed, but the time encoding stays,
+    # with the new units and calendar.
     for var, variable in tcwv_dataset.variables.items():
         assert not set(RANGE_ATTRIBUTES) & set(variable.attrs)
         if var in ("time", "time_bnds"):
             assert variable.encoding == {
                 **original[var].encoding,
-                "calendar": "standard",
+                "units": "days since 1850-01-01",
+                "calendar": "proleptic_gregorian",
+                "dtype": np.dtype("float64"),
             }
         else:
             assert not set(PACKING_KEYS) & set(variable.encoding)

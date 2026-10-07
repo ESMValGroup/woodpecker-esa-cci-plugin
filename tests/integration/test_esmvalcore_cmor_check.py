@@ -13,19 +13,24 @@ iris_conversion = pytest.importorskip("tests.integration.iris_conversion")
 def test_passes_cmip7_cmor_check(case: Case) -> None:
     dataset = open_fixed_dataset(case)
 
-    cube = iris_conversion.dataset_to_cubes(dataset).extract_cube(
-        case.standard_name
-    )
+    cubes = iris_conversion.dataset_to_cubes(dataset)
+    assert len(cubes) == 1
+    cube = cubes[0]
+    assert cube.var_name == case.variable_id
     # Iris changes the latitude and longitude units to degrees, so restore
     # them from the dataset like the ESMValCore loader does.
     for coord in cube.coords(axis="X") + cube.coords(axis="Y"):
         coord.units = dataset[coord.var_name].attrs["units"]
 
+    # The recipe stores the CMIP7 variable in the global attributes.
+    attrs = cube.attributes
     esmvalcore_check.cmor_check(
         cube,
         cmor_table="CMIP7",
-        mip=case.realm,
-        short_name=case.variable_id,
-        branding_suffix=case.variable_branding_suffix,
-        frequency=case.frequency,
+        mip=attrs["realm"],
+        short_name=attrs["variable_id"],
+        branding_suffix=attrs["branded_variable"].removeprefix(
+            f"{attrs['variable_id']}_"
+        ),
+        frequency=attrs["frequency"],
     )

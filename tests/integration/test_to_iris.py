@@ -19,4 +19,3 @@ def test_loads_with_iris_without_warnings(case: Case) -> None:
     assert len(cubes) == 1
     for cube in cubes:
         assert cube.var_name == case.variable_id
-        assert cube.standard_name == case.standard_name

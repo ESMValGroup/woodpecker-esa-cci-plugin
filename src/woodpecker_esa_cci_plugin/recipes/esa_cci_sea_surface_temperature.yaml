@@ -30,6 +30,11 @@ recipes:
         options:
           attributes:
             Conventions: CF-1.11
+            # The CMIP7 variable, after renaming.
+            variable_id: tos
+            branded_variable: tos_tavg-u-hxy-sea
+            frequency: day
+            realm: ocean
       - id: esa_cci.remove_global_attributes
         options:
           # Empty.
@@ -38,12 +43,25 @@ recipes:
         options:
           units:
             analysed_sst: degC
+      # CMIP7 stores data in single precision, and coordinates in double
+      # precision.
+      - id: esa_cci.set_data_types
+        options:
+          data_types:
+            analysed_sst: float32
+            lat: float64
+            lon: float64
+      # Before normalizing the longitude, so the bounds are wrapped too.
+      - id: esa_cci.add_bounds
+        options:
+          coordinates: [lat, lon]
       - id: esa_cci.set_time_units
         options:
           coordinate: time
           units: days since 1850-01-01
-          # The preferred name of the gregorian calendar.
-          calendar: standard
+          # xarray decodes the times to numpy datetime64, which uses the
+          # proleptic Gregorian calendar.
+          calendar: proleptic_gregorian
       - id: esa_cci.normalize_longitude
         options:
           coordinate: lon

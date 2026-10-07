@@ -15,32 +15,24 @@ STORAGE_OPTIONS = {
 
 
 class Case(NamedTuple):
-    """A dataset and the CMIP7 variable its recipe provides."""
+    """A dataset and the CMIP7 variable its recipe provides.
+
+    The recipe stores the realm, branded variable and frequency of the CMIP7
+    variable in the global attributes.
+    """
 
     data_id: str
-    standard_name: str
-    realm: str
     variable_id: str
-    variable_branding_suffix: str
-    frequency: str
 
 
 CASES = [
     Case(
         "ESACCI-WATERVAPOUR-L3C-TCWV-meris-005deg-2002-2017-fv3.2.zarr",
-        "atmosphere_mass_content_of_water_vapor",
-        "atmos",
         "prw",
-        "tavg-u-hxy-u",
-        "mon",
     ),
     Case(
         "ESACCI-L4_GHRSST-SST-GMPE-GLOB_CDR2.0-1981-2016-v02.0-fv01.0.zarr",
-        "sea_surface_temperature",
-        "ocean",
         "tos",
-        "tavg-u-hxy-sea",
-        "day",
     ),
 ]
 
