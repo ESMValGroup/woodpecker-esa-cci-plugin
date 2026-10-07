@@ -6,8 +6,8 @@ import woodpecker
 from woodpecker.io.backends.xr import XarrayInput
 
 xcube_store = pytest.importorskip("xcube.core.store")
-iris_xarray = pytest.importorskip("ncdata.iris_xarray")
 iris = pytest.importorskip("iris")
+iris_conversion = pytest.importorskip("tests.integration.iris_conversion")
 
 DATA_ID = "ESACCI-WATERVAPOUR-L3C-TCWV-meris-005deg-2002-2017-fv3.2.zarr"
 
@@ -27,14 +27,9 @@ def test_prw_loads_with_iris_without_warnings(cci_store: Any) -> None:  # noqa: 
         dry_run=False,
     )
 
-    # Opt in to loading the datum from the grid mapping, otherwise iris
-    # warns that it ignores it.
-    with (
-        iris.FUTURE.context(datum_support=True),
-        warnings.catch_warnings(),
-    ):
+    with warnings.catch_warnings():
         warnings.simplefilter("error")
-        cubes = iris_xarray.cubes_from_xarray(dataset)
+        cubes = iris_conversion.dataset_to_cubes(dataset)
 
     cube = cubes.extract_cube("atmosphere_mass_content_of_water_vapor")
     assert cube.var_name == "prw"
