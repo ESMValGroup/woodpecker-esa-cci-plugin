@@ -48,13 +48,3 @@ Other environments, selected with `-e`:
   need internet access. Run only those with
   `pixi run -e xcube test tests/integration`, or only the unit tests with
   `pixi run test tests/unit`.
-
-Check that woodpecker picks up the plugin:
-
-```bash
-pixi run woodpecker list-fixes --dataset ESA-CCI
-pixi run woodpecker list-recipes
-```
-
-Versions come from git tags via setuptools-scm, using the `calver-by-date`
-scheme (e.g. `2026.9.28`).
