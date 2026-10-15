@@ -2,11 +2,11 @@ import woodpecker
 import xarray as xr
 from woodpecker.fixes.registry import FixFunctionRegistry
 
-from woodpecker_esa_cci_plugin.fixes.remove_xcube_cci_attributes import (
-    XCUBE_CCI_ATTRIBUTES,
+from woodpecker_esa_cci_plugin.fixes.remove_xcube_cci_odp_attributes import (
+    XCUBE_CCI_ODP_ATTRIBUTES,
 )
 
-FIX_ID = "esa_cci.remove_xcube_cci_attributes"
+FIX_ID = "esa_cci.remove_xcube_cci_odp_attributes"
 # The history as set by the xcube-cci Open Data Portal store.
 HISTORY = [
     {
@@ -16,11 +16,11 @@ HISTORY = [
 ]
 
 
-def _xcube_cci_attributes(dataset: xr.Dataset) -> dict[str, list[str]]:
+def _xcube_cci_odp_attributes(dataset: xr.Dataset) -> dict[str, list[str]]:
     return {
-        str(name): sorted(set(XCUBE_CCI_ATTRIBUTES) & set(variable.attrs))
+        str(name): sorted(set(XCUBE_CCI_ODP_ATTRIBUTES) & set(variable.attrs))
         for name, variable in dataset.variables.items()
-        if set(XCUBE_CCI_ATTRIBUTES) & set(variable.attrs)
+        if set(XCUBE_CCI_ODP_ATTRIBUTES) & set(variable.attrs)
     }
 
 
@@ -45,7 +45,7 @@ def test_attributes_are_removed(tcwv_dataset: xr.Dataset) -> None:
     )
     tcwv_dataset["lat"].attrs.update(chunk_sizes=10, file_chunk_sizes=10)
     tcwv_dataset.attrs["history"] = HISTORY
-    before = _xcube_cci_attributes(tcwv_dataset)
+    before = _xcube_cci_odp_attributes(tcwv_dataset)
     assert set(before) == {"tcwv", "lat"}
 
     findings = woodpecker.check(tcwv_dataset, fixes=FIX_ID)
@@ -61,12 +61,12 @@ def test_attributes_are_removed(tcwv_dataset: xr.Dataset) -> None:
 
     preview = woodpecker.apply(tcwv_dataset, fixes=FIX_ID, dry_run=True)
     assert preview.changed == 1
-    assert _xcube_cci_attributes(tcwv_dataset) == before
+    assert _xcube_cci_odp_attributes(tcwv_dataset) == before
     assert tcwv_dataset.attrs["history"] == HISTORY
 
     result = woodpecker.apply(tcwv_dataset, fixes=FIX_ID, dry_run=False)
     assert result.changed == 1
-    assert not _xcube_cci_attributes(tcwv_dataset)
+    assert not _xcube_cci_odp_attributes(tcwv_dataset)
     assert tcwv_dataset.attrs["history"] == (
         '{"program": "xcube_cci.chunkstore.CciChunkStore", "cube_params": '
         '{"time_range": ["2003-01-01T00:00:00", null]}}'

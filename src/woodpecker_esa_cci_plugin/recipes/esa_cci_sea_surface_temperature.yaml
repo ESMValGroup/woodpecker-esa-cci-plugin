@@ -22,12 +22,13 @@ recipes:
       - id: esa_cci.remove_range_attributes
       # Attributes that the Open Data Portal store adds to describe the
       # original files.
-      - id: esa_cci.remove_xcube_cci_attributes
+      - id: esa_cci.remove_xcube_cci_odp_attributes
       # Datasets in the zarr store have no time bounds, so add them before
       # the steps that change the bounds.
-      - id: esa_cci.center_daily_time
+      - id: esa_cci.center_time
         options:
           coordinate: time
+          frequency: day
       # GMPE has no latitude and longitude bounds. Before normalizing the
       # longitude, so the bounds are wrapped too.
       - id: esa_cci.add_bounds

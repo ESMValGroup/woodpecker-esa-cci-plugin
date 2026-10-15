@@ -19,7 +19,7 @@ if TYPE_CHECKING:
 # describe the variables in the original files. They are not part of the
 # ESA CCI data and become invalid when the data changes, e.g. data_type and
 # fill_value after removing the packing.
-XCUBE_CCI_ATTRIBUTES = (
+XCUBE_CCI_ODP_ATTRIBUTES = (
     "chunk_sizes",
     "data_type",
     "dimensions",
@@ -43,18 +43,18 @@ def history_string(history: object) -> str:
 
 
 @register_fix_function
-class RemoveXcubeCciAttributes(ConfigurableFix[Options]):
+class RemoveXcubeCciOdpAttributes(ConfigurableFix[Options]):
     """Remove the attributes that the xcube-cci Open Data Portal store adds.
 
-    The attributes in ``XCUBE_CCI_ATTRIBUTES`` are removed from all
+    The attributes in ``XCUBE_CCI_ODP_ATTRIBUTES`` are removed from all
     variables that have them. A ``history`` global attribute that is not a
     string is converted to one, with each entry as JSON on its own line.
     Datasets from other stores do not have them, so the fix does nothing for
     those.
     """
 
-    suffix = "remove_xcube_cci_attributes"
-    name = "Remove xcube-cci attributes"
+    suffix = "remove_xcube_cci_odp_attributes"
+    name = "Remove xcube-cci Open Data Portal attributes"
     description = (
         "Removes the attributes that the xcube-cci Open Data Portal store "
         "adds to describe the original files: chunk_sizes, data_type, "
@@ -74,7 +74,9 @@ class RemoveXcubeCciAttributes(ConfigurableFix[Options]):
         wrong: dict[Hashable, list[str]] = {}
         for name, variable in dataset.variables.items():
             if keys := [
-                key for key in XCUBE_CCI_ATTRIBUTES if key in variable.attrs
+                key
+                for key in XCUBE_CCI_ODP_ATTRIBUTES
+                if key in variable.attrs
             ]:
                 wrong[name] = keys
         return wrong
