@@ -1,9 +1,17 @@
 recipes:
   - id: esa_cci.sea_surface_temperature
-    description: Prepare ESA CCI sea surface temperature (SST) datasets
+    description: >-
+      Prepare ESA CCI daily level 4 sea surface temperature (SST) analyses
     match:
       path_patterns:
-        - "*ESACCI-*-SST-*"
+        # GMPE, the median of an ensemble of SST analyses, in the zarr and
+        # Open Data Portal stores.
+        - "*ESACCI-L4_GHRSST-SST-GMPE-GLOB_*"
+        - "*esacci.SST.day.L4.SSTskin.Unspecified.Unspecified.GMPE.*"
+        # OSTIA analyses in the Open Data Portal store, but not the
+        # OSTIA.2-1.anomaly dataset, because CMIP7 has no SST anomalies.
+        - "*esacci.SST.day.L4.SSTdepth.multi-sensor.multi-platform.OSTIA.1-1.r1"
+        - "*esacci.SST.day.L4.SSTdepth.multi-sensor.multi-platform.OSTIA.2-1.sst"
     steps:
       # Steps run in the order listed here. The variables are renamed last,
       # so all steps use the original variable names. Woodpecker allows each
@@ -12,6 +20,20 @@ recipes:
       # change, so remove them first. The time encoding is kept.
       - id: esa_cci.remove_packing
       - id: esa_cci.remove_range_attributes
+      # Attributes that the Open Data Portal store adds to describe the
+      # original files.
+      - id: esa_cci.remove_xcube_cci_odp_attributes
+      # Datasets in the zarr store have no time bounds, so add them before
+      # the steps that change the bounds.
+      - id: esa_cci.center_time
+        options:
+          coordinate: time
+          frequency: day
+      # GMPE has no latitude and longitude bounds. Before normalizing the
+      # longitude, so the bounds are wrapped too.
+      - id: esa_cci.add_bounds
+        options:
+          coordinates: [lat, lon]
       - id: esa_cci.set_attributes
         options:
           attributes:
@@ -26,6 +48,19 @@ recipes:
               # which do not count leap seconds. Times that are not decoded
               # are converted with them by esa_cci.set_time_units.
               units_metadata: "leap_seconds: none"
+      - id: esa_cci.remove_attributes
+        options:
+          attributes:
+            # Bounds variables inherit the standard_name and long_name of
+            # their coordinate, and CF recommends leaving them out. The Open
+            # Data Portal store sets the invalid standard_name time_bnds.
+            lat_bnds: &bounds [standard_name, long_name, comment]
+            lon_bnds: *bounds
+            time_bnds: *bounds
+            # Empty in OSTIA 1-1, and the same as reference_datum in OSTIA
+            # 2-1.
+            lat: [comment]
+            lon: [comment]
       - id: esa_cci.set_global_attributes
         options:
           attributes:
@@ -51,10 +86,8 @@ recipes:
             analysed_sst: float32
             lat: float64
             lon: float64
-      # Before normalizing the longitude, so the bounds are wrapped too.
-      - id: esa_cci.add_bounds
-        options:
-          coordinates: [lat, lon]
+            lat_bnds: float64
+            lon_bnds: float64
       - id: esa_cci.set_time_units
         options:
           coordinate: time

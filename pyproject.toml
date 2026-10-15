@@ -60,6 +60,7 @@ xcube = ">=1.13"
 xcube-cci = ">=0.14"
 ncdata = "*"
 iris = "*"
+compliance-checker = "*"
 
 # Dependencies of the tests that download data from the ESA CCI Open Data
 # Portal. ESMValCore requires zarr>3, while xcube-cci requires zarr<3, so this

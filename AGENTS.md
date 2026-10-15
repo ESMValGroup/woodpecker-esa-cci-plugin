@@ -55,7 +55,8 @@ changing the dependencies in `pyproject.toml`, run `pixi lock`.
   `synthetic_esa_cci_data.py` that mimics the real data, including its
   encoding.
 - `tests/integration/`: tests on the real datasets listed in
-  `esa_cci_data.py`. They check that the recipes match the datasets, and
+  `esa_cci_data.py`, from the zarr, Kerchunk and Open Data Portal stores.
+  They check that the recipes match exactly these datasets, and
   that the output passes the CF compliance checker and the ESMValCore CMIP7
   CMOR check, loads with iris, and that the synthetic dataset still looks
   like the real one.
@@ -63,13 +64,20 @@ changing the dependencies in `pyproject.toml`, run `pixi lock`.
 The integration tests are skipped in the `default` environment, because
 their dependencies are not installed there. Make sure the `online` and
 `xcube` environments are installed, and after a change that affects a fix or
-recipe that the integration tests use, run them in both. They take less than
-a minute:
+recipe that the integration tests use, run them in both. They take about 1
+minute in `online` and 3 minutes in `xcube`, and need up to 3 GB of memory:
 
 ```bash
 pixi run -e online pytest tests/integration
 pixi run -e xcube pytest tests/integration
 ```
 
-Each environment skips the tests that need the other one. Check that the
-tests you expect to run pass and are not skipped.
+Each environment skips the tests that need the other one, and `online`
+skips the Open Data Portal datasets, which only xcube-cci can open. Check
+that the tests you expect to run pass and are not skipped.
+
+The integration tests only use the first few time steps of the Kerchunk
+and Open Data Portal datasets. After adding a dataset or changing a fix or
+recipe step that affects the time coordinate, also run them with
+`--full-time-axis` on the affected datasets, selected with `-k`, e.g.
+`-k WATERVAPOUR.day`.

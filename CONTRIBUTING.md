@@ -35,16 +35,30 @@ Other environments, selected with `-e`:
   conventions and the CMIP7 CMOR tables, and that it loads without warnings
   with iris. These tests need internet access.
   ESMValCore needs zarr 3 and xcube-cci needs zarr 2, so these tests open the
-  ESA CCI zarr store directly with s3fs.
+  ESA CCI zarr store directly with s3fs, and the Kerchunk references with
+  fsspec. The datasets from the Open Data Portal store can only be opened
+  with xcube-cci, so their tests are skipped here.
   It also includes the CMIP7 checker of
   [cc-plugin-wcrp](https://github.com/ESGF/cc-plugin-wcrp), which checks the
   recipe output against the CMIP7 vocabularies, except for the global
   attributes and how the data is stored. The test downloads the vocabularies
   into `.pixi/esgvoc` the first time it runs.
 - `xcube`: includes [xcube](https://github.com/xcube-dev/xcube), its
-  [ESA CCI plugin](https://github.com/esa-cci/xcube-cci), ncdata and iris, e.g.
-  `pixi run -e xcube test`. This also runs the integration tests in
-  `tests/integration`, which load data from the ESA CCI Open Data Portal and
-  need internet access. Run only those with
+  [ESA CCI plugin](https://github.com/esa-cci/xcube-cci), ncdata, iris and
+  the IOOS compliance checker, e.g. `pixi run -e xcube test`. This also runs
+  the integration tests in `tests/integration`, which load data from the ESA
+  CCI Open Data Portal and need internet access. These include the CF and
+  iris tests of the datasets from all three stores, and check that the
+  recipes match exactly the datasets that the tests use. Run only those with
   `pixi run -e xcube test tests/integration`, or only the unit tests with
   `pixi run test tests/unit`.
+
+To keep the integration tests fast, they only use the first few time steps
+of the Kerchunk and Open Data Portal datasets. When adding a dataset or
+changing how the recipes fix the time, also run them on all time steps of
+the affected datasets, which takes several minutes per dataset, e.g.:
+
+```bash
+pixi run -e online pytest tests/integration --full-time-axis -k ccikc
+pixi run -e xcube pytest tests/integration --full-time-axis -k WATERVAPOUR.day
+```

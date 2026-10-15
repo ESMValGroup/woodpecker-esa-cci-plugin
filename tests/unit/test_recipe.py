@@ -56,7 +56,7 @@ def test_recipe_fixes_dataset(tcwv_dataset: xr.Dataset) -> None:
         "esa_cci.remove_packing",
         "esa_cci.set_global_attributes",
         "esa_cci.set_data_types",
-        "esa_cci.center_monthly_time",
+        "esa_cci.center_time",
         "esa_cci.set_time_units",
     }
 
