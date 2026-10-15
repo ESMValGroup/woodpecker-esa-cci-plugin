@@ -6,7 +6,7 @@ from typing import Any
 import pytest
 import xarray as xr
 
-from tests.integration.esa_cci_data import SUBSET_TIME_STEPS
+from tests.integration.esa_cci_data import TIME_STEPS
 
 netcdf4 = pytest.importorskip("netCDF4")
 suite = pytest.importorskip("compliance_checker.suite")
@@ -18,7 +18,7 @@ def write_subset(dataset: xr.Dataset, path: Path) -> None:
     The compliance checker only reads netCDF files, so this writes the first
     time steps around the Dutch coast, to cover both land and sea.
     """
-    subset = dataset.isel(time=slice(SUBSET_TIME_STEPS)).sel(
+    subset = dataset.isel(time=slice(TIME_STEPS)).sel(
         lat=slice(51.5, 53.0),
         lon=slice(3.0, 6.0),
     )

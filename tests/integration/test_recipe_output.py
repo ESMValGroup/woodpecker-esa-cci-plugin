@@ -18,7 +18,7 @@ import xarray as xr
 
 from .esa_cci_data import (
     CASES,
-    SUBSET_TIME_STEPS,
+    TIME_STEPS,
     Case,
     open_fixed_dataset,
 )
@@ -47,7 +47,7 @@ VOCABULARIES = ("cmip7@2.4.1", "universe@3.2.7")
 TIME_RANGE_FORMATS = {"mon": "%Y%m", "day": "%Y%m%d"}
 
 
-@pytest.fixture(scope="module", params=CASES, ids=[c.id for c in CASES])
+@pytest.fixture(scope="module", params=CASES, ids=[c.data_id for c in CASES])
 def case(request: pytest.FixtureRequest) -> Case:
     result: Case = request.param
     return result
@@ -92,7 +92,7 @@ def subset_path(
     range from the file name.
     """
     # The first and last time step in the file.
-    times = fixed_dataset.indexes["time"][[0, SUBSET_TIME_STEPS - 1]]
+    times = fixed_dataset.indexes["time"][[0, TIME_STEPS - 1]]
     time_format = TIME_RANGE_FORMATS[fixed_dataset.attrs["frequency"]]
     time_range = "-".join(time.strftime(time_format) for time in times)
     path = tmp_path_factory.mktemp("decoded") / (

@@ -46,24 +46,22 @@ KERCHUNK_REFERENCES = {
         "0.5deg/monthly"
     ),
 }
-# The number of time steps that the tests write to netCDF files.
-SUBSET_TIME_STEPS = 2
+# The number of time steps that the tests use of the Kerchunk and Open Data
+# Portal datasets, unless pytest runs with --full-time-axis, and that they
+# write to netCDF files. The daily Kerchunk datasets store the time bounds
+# in a chunk per day, and the recipes read all of them, which takes long,
+# and the Open Data Portal store reads each time step from a separate
+# netCDF file over OPeNDAP.
+TIME_STEPS = 2
 # The dask chunks of the zarr and Kerchunk datasets: the time steps that the
 # tests write are a single chunk, so only those are read. Spatially, the
 # chunks are ~128 MB, because the storage chunks of the 0.05 degree datasets
 # are a few MB, and with those, each recipe step adds hundreds of thousands
 # of tasks to the dask graph, which takes GBs of memory.
-CHUNKS = {"time": SUBSET_TIME_STEPS, "lat": "auto", "lon": "auto"}
-# The daily Kerchunk datasets store the time bounds in a chunk per day, and
-# the recipes read all of them, which takes long, so the tests only use the
-# first time steps, unless pytest runs with --full-time-axis.
-KERCHUNK_TIME_STEPS = 3
-# The Open Data Portal store reads each time step from a separate netCDF
-# file over OPeNDAP, so the tests only use the first time steps, unless
-# pytest runs with --full-time-axis.
-ODP_TIME_RANGES = {
-    "day": ["2003-01-01", "2003-01-03"],
-    "mon": ["2003-01-01", "2003-03-31"],
+CHUNKS: dict[str, int | Literal["auto"]] = {
+    "time": TIME_STEPS,
+    "lat": "auto",
+    "lon": "auto",
 }
 # The Open Data Portal datasets of the water vapour recipes.
 ODP_WATER_VAPOUR = (
@@ -82,11 +80,6 @@ class Case(NamedTuple):
     store: Store
     data_id: str
     variable_id: str
-
-    @property
-    def id(self) -> str:
-        """Return a short name of the case for test ids."""
-        return f"{self.variable_id}-{self.store}-{self.data_id}"
 
 
 CASES = [
@@ -164,24 +157,18 @@ def _open_dataset(
                 "remote_options": {"asynchronous": asynchronous},
             },
         )
-        if not full_time_axis:
-            dataset = dataset.isel(time=slice(KERCHUNK_TIME_STEPS))
     else:
         xcube_store = pytest.importorskip("xcube.core.store")
         if not decode_times:
             pytest.skip("The Open Data Portal store always decodes the times")
-        store = xcube_store.new_data_store("cciodp")
+        dataset = xcube_store.new_data_store("cciodp").open_data(case.data_id)
+        # The store has no option to set the chunks. With only a few time
+        # steps, the dask graph is small with the storage chunks, and larger
+        # dask chunks would read more files.
         if full_time_axis:
-            # The store has no option to set the chunks.
-            dataset = store.open_data(case.data_id).chunk(CHUNKS)
-        else:
-            # With only a few time steps, the dask graph is small with the
-            # storage chunks, and larger dask chunks would read more files.
-            frequency = case.data_id.split(".")[2]
-            dataset = store.open_data(
-                case.data_id,
-                time_range=ODP_TIME_RANGES[frequency],
-            )
+            dataset = dataset.chunk(CHUNKS)
+    if case.store != "ccizarr" and not full_time_axis:
+        dataset = dataset.isel(time=slice(TIME_STEPS))
     return dataset
 
 
