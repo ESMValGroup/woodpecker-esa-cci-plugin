@@ -71,6 +71,17 @@ def test_time_units_are_set(tcwv_dataset: xr.Dataset) -> None:
     np.testing.assert_allclose(time.to_numpy(), days)
 
 
+def test_time_units_are_set_without_bounds(tcwv_dataset: xr.Dataset) -> None:
+    del tcwv_dataset["time"].attrs["bounds"]
+    tcwv_dataset = tcwv_dataset.drop_vars("time_bnds")
+
+    woodpecker.apply(
+        tcwv_dataset, fixes=FIX_ID, dry_run=False, options=OPTIONS
+    )
+    assert tcwv_dataset["time"].encoding["units"] == UNITS
+    assert not woodpecker.check(tcwv_dataset, fixes=FIX_ID, options=OPTIONS)
+
+
 def test_calendar_is_set(tcwv_dataset: xr.Dataset) -> None:
     original = {
         name: dict(tcwv_dataset[name].encoding)

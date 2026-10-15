@@ -81,6 +81,10 @@ def test_history_string_is_kept(tcwv_dataset: xr.Dataset) -> None:
     tcwv_dataset["tcwv"].attrs["orig_data_type"] = "int16"
     tcwv_dataset.attrs["history"] = "Created by the ESA CCI processor"
 
+    findings = woodpecker.check(tcwv_dataset, fixes=FIX_ID)
+    messages = [finding["message"] for finding in findings.findings]
+    assert messages == ["tcwv has attributes orig_data_type"]
+
     woodpecker.apply(tcwv_dataset, fixes=FIX_ID, dry_run=False)
 
     assert "orig_data_type" not in tcwv_dataset["tcwv"].attrs

@@ -169,6 +169,14 @@ def test_daily_time_is_centered(
     np.testing.assert_array_equal(daily_dataset["tcwv"], 1.0)
 
 
+def test_centered_daily_time_is_not_changed(
+    daily_dataset: xr.Dataset,
+) -> None:
+    daily_dataset["time"] = daily_dataset["time"].copy(data=DAILY_MIDDLE)
+
+    assert not woodpecker.check(daily_dataset, fixes=FIX_ID, options=OPTIONS)
+
+
 def test_daily_bounds_are_added(daily_dataset: xr.Dataset) -> None:
     del daily_dataset["time"].attrs["bounds"]
     daily_dataset = daily_dataset.drop_vars("time_bnds")
