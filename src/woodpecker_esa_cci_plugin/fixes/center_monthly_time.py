@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, cast
+from typing import TYPE_CHECKING, ClassVar, Literal, cast
 
 import numpy as np
 import xarray as xr
@@ -19,6 +19,8 @@ if TYPE_CHECKING:
 # The name of the dimension of the two bounds of each cell, for bounds that
 # are added.
 BOUNDS_DIMENSION = "bnds"
+# The numpy datetime units of calendar periods.
+PeriodUnit = Literal["M", "D"]
 
 
 def _decoded(
@@ -60,54 +62,43 @@ def _encoded(
     return xr.conventions.encode_cf_variable(variable, name=name)
 
 
-def _months(
-    name: str, times: NDArray[np.datetime64]
+def _periods(
+    name: str, times: NDArray[np.datetime64], unit: PeriodUnit, periods: str
 ) -> tuple[NDArray[np.datetime64], NDArray[np.datetime64]]:
-    """Return the middle and bounds of the calendar months of ``times``."""
+    """Return the middle and bounds of the periods of ``times``.
+
+    The periods are calendar months or days, given by the numpy datetime
+    ``unit``, e.g. ``M`` or ``D``, and named ``periods`` in messages.
+    """
     if not np.issubdtype(times.dtype, np.datetime64):
         msg = (
-            f"Unable to center {name} in calendar months: it is not decoded "
-            "to numpy datetime64"
+            f"Unable to center {name} in {periods}: it is not decoded to "
+            "numpy datetime64"
         )
         raise ValueError(msg)
-    start = times.astype("datetime64[M]")
-    end = start + np.timedelta64(1, "M")
+    start = times.astype(f"datetime64[{unit}]")
+    end = start + np.timedelta64(1, unit)
     bounds = np.stack([start, end], axis=1).astype(times.dtype)
     middle = bounds[:, 0] + (bounds[:, 1] - bounds[:, 0]) / 2
     return cast("NDArray[np.datetime64]", middle), bounds
 
 
-class CenterMonthlyTimeOptions(Options):
-    """Options of :class:`CenterMonthlyTime`."""
+class CenterTimeOptions(Options):
+    """Options of :class:`CenterTimeInPeriods` and its subclasses."""
 
     coordinate: str | None = None
 
 
-@register_fix_function
-class CenterMonthlyTime(ConfigurableFix[CenterMonthlyTimeOptions]):
-    """Center monthly time points in the calendar months they are in.
+class CenterTimeInPeriods(ConfigurableFix[CenterTimeOptions]):
+    """Center time points in the calendar periods they are in.
 
-    The monthly time coordinate is configured with the ``coordinate`` option.
-    Its bounds are set to the start of the calendar month of each time point
-    and the start of the next month, and the time points to the middle of
-    their bounds, as CMIP7 requires for monthly means. Coordinates without
-    bounds get a bounds variable named after the coordinate with a ``_bnds``
-    suffix. A coordinate that does not exist, is not a dimension coordinate
-    or has two time points in the same month raises an error.
+    Subclasses set the periods with ``unit``, a numpy datetime unit, and
+    ``period``, its name in messages.
     """
 
-    suffix = "center_monthly_time"
-    name = "Center monthly time"
-    description = (
-        "Sets the bounds of the monthly time coordinate configured with the "
-        "coordinate option to whole calendar months, and the time points to "
-        "the middle of their month, as CMIP7 requires for monthly means."
-    )
-    categories = ["coordinates"]  # noqa: RUF012
-    priority = 50
-    dataset = "ESA-CCI"
-    labels = [Labels.RISK_COORDINATE_TRANSFORMATION]  # noqa: RUF012
-    options_model = CenterMonthlyTimeOptions
+    unit: ClassVar[PeriodUnit]
+    period: ClassVar[str]
+    options_model = CenterTimeOptions
 
     def _wrong(
         self, dataset: xr.Dataset
@@ -116,24 +107,22 @@ class CenterMonthlyTime(ConfigurableFix[CenterMonthlyTimeOptions]):
         name = self.options.coordinate
         if name is None:
             return None
+        periods = f"calendar {self.period}s"
         if name not in dataset.variables:
-            msg = (
-                f"Unable to center {name} in calendar months: it does not "
-                "exist"
-            )
+            msg = f"Unable to center {name} in {periods}: it does not exist"
             raise ValueError(msg)
         if dataset[name].dims != (name,):
             msg = (
-                f"Unable to center {name} in calendar months: it is not a "
-                "dimension coordinate"
+                f"Unable to center {name} in {periods}: it is not a dimension "
+                "coordinate"
             )
             raise ValueError(msg)
         times = _decoded(dataset, name).to_numpy()
-        middle, bounds = _months(name, times)
+        middle, bounds = _periods(name, times, self.unit, periods)
         if np.unique(bounds[:, 0]).size != bounds.shape[0]:
             msg = (
-                f"Unable to center {name} in calendar months: it has several "
-                "time points in the same month"
+                f"Unable to center {name} in {periods}: it has several time "
+                f"points in the same {self.period}"
             )
             raise ValueError(msg)
         current_bounds = None
@@ -157,10 +146,11 @@ class CenterMonthlyTime(ConfigurableFix[CenterMonthlyTimeOptions]):
         if (found := self._wrong(dataset)) is None:
             return []
         name = found[0]
+        periods = f"calendar {self.period}s"
         return [
             (
-                f"{name} is not centered in calendar months, or its bounds "
-                "are not whole calendar months"
+                f"{name} is not centered in {periods}, or its bounds are not "
+                f"whole {periods}"
             )
         ]
 
@@ -198,3 +188,31 @@ class CenterMonthlyTime(ConfigurableFix[CenterMonthlyTimeOptions]):
             dataset[name] = _encoded(variable, decoded, middle, name)
             dataset[name].attrs["bounds"] = bounds_name
         return True
+
+
+@register_fix_function
+class CenterMonthlyTime(CenterTimeInPeriods):
+    """Center monthly time points in the calendar months they are in.
+
+    The monthly time coordinate is configured with the ``coordinate`` option.
+    Its bounds are set to the start of the calendar month of each time point
+    and the start of the next month, and the time points to the middle of
+    their bounds, as CMIP7 requires for monthly means. Coordinates without
+    bounds get a bounds variable named after the coordinate with a ``_bnds``
+    suffix. A coordinate that does not exist, is not a dimension coordinate
+    or has two time points in the same month raises an error.
+    """
+
+    suffix = "center_monthly_time"
+    name = "Center monthly time"
+    description = (
+        "Sets the bounds of the monthly time coordinate configured with the "
+        "coordinate option to whole calendar months, and the time points to "
+        "the middle of their month, as CMIP7 requires for monthly means."
+    )
+    categories = ["coordinates"]  # noqa: RUF012
+    priority = 50
+    dataset = "ESA-CCI"
+    labels = [Labels.RISK_COORDINATE_TRANSFORMATION]  # noqa: RUF012
+    unit = "M"
+    period = "month"

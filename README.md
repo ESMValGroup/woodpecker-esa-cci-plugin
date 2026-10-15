@@ -21,6 +21,7 @@ from woodpecker.io.backends.xr import XarrayInput
 data_id = "ESACCI-WATERVAPOUR-L3C-TCWV-meris-005deg-2002-2017-fv3.2.zarr"
 dataset = xr.open_zarr(
     f"s3://esacci/{data_id}",
+    chunks="auto",
     storage_options={
         "anon": True,
         "client_kwargs": {
@@ -47,10 +48,44 @@ problems without fixing them.
 
 ## Supported datasets
 
-This plugin supports the following datasets from the ESA CCI Open Data Portal:
+This plugin supports the following datasets from the ESA CCI Open Data
+Portal. They are available from three stores, which the
+[xcube ESA CCI plugin](https://github.com/esa-cci/xcube-cci) opens as the
+`ccizarr`, `ccikc` and `cciodp` data stores. The data id is the name to
+pass to woodpecker.
 
-- Water vapour: `ESACCI-WATERVAPOUR-L3C-TCWV-meris-005deg-2002-2017-fv3.2.zarr`
-- Sea surface temperature: `ESACCI-L4_GHRSST-SST-GMPE-GLOB_CDR2.0-1981-2016-v02.0-fv01.0.zarr`
+- Water vapour, total column, as the CMIP7 variable `prw`:
+  - zarr store: `ESACCI-WATERVAPOUR-L3C-TCWV-meris-005deg-2002-2017-fv3.2.zarr`
+  - Kerchunk store, daily and monthly v3.2 at 0.05° and 0.5°:
+    `ESACCI-WATERVAPOUR-L3C-TCWV-meris-*-fv3.2-kr1.1`
+  - Open Data Portal store, daily and monthly v3.2 and v4.2 at 0.05° and
+    0.5°:
+    `esacci.WATERVAPOUR.{day,mon}.L3S.TCWV.multi-sensor.multi-platform.TCWV_land_*.{3-2,4-2}.r1`
+- Sea surface temperature, daily level 4 analyses, as the CMIP7 variable
+  `tos`:
+  - zarr store, GMPE:
+    `ESACCI-L4_GHRSST-SST-GMPE-GLOB_CDR2.0-1981-2016-v02.0-fv01.0.zarr`
+  - Open Data Portal store, GMPE and OSTIA:
+    `esacci.SST.day.L4.SSTskin.Unspecified.Unspecified.GMPE.2-0.r1`,
+    `esacci.SST.day.L4.SSTdepth.multi-sensor.multi-platform.OSTIA.1-1.r1`
+    and `esacci.SST.day.L4.SSTdepth.multi-sensor.multi-platform.OSTIA.2-1.sst`
+
+The 0.05° daily datasets have storage chunks of a few MB, so with those as
+dask chunks, each recipe step adds hundreds of thousands of tasks to the
+dask graph, which takes several GB of memory. Use dask chunks of ~128 MB
+instead: pass `chunks="auto"` to `xr.open_zarr`, or rechunk datasets
+from the xcube-cci Kerchunk and Open Data Portal stores, which have no
+option for the chunks, before applying the recipe:
+
+```python
+from xcube.core.store import new_data_store
+
+data_id = (
+    "esacci.WATERVAPOUR.day.L3S.TCWV.multi-sensor.multi-platform."
+    "TCWV_land_005deg.3-2.r1"
+)
+dataset = new_data_store("cciodp").open_data(data_id).chunk("auto")
+```
 
 For the CMIP7 variables that other ESA CCI datasets could provide, see
 [docs/cmip7_variable_mapping.md](docs/cmip7_variable_mapping.md).
@@ -66,8 +101,9 @@ problems it finds, or apply the correction.
 A recipe contains the fixes for one dataset: a list of steps, each of
 which is a fix with its options, that runs in order. Woodpecker selects the
 recipe for a dataset by matching the path patterns of the recipe against
-the name of the input, e.g. `*ESACCI-WATERVAPOUR-*`. This plugin provides
-one recipe for each supported dataset.
+the name of the input, e.g. `*ESACCI-L4_GHRSST-SST-GMPE-GLOB_*`. This plugin
+provides one recipe for each group of datasets that need the same fixes,
+e.g. the monthly water vapour datasets of version 3.2 in all stores.
 
 To list the recipes, run:
 
