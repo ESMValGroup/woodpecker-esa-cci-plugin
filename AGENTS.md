@@ -49,6 +49,21 @@ changing the dependencies in `pyproject.toml`, run `pixi lock`.
   recipe, and variables are renamed last so that all other steps use the
   original names.
 
+## Uncertainty variables
+
+When adding a dataset, try to keep the variables that describe the
+uncertainty of the selected variable, such as standard errors, retrieval
+uncertainties, standard deviations and the number of observations, instead
+of letting `esa_cci.select_variables` drop them. List them in the
+`ancillary_variables` attribute of the selected variable: then they are
+kept, and iris loads them as ancillary variables of the same cube. Check the
+product user guide for what each one means, and give it a CF standard name
+where one fits, e.g. `<standard_name> standard_error` for an uncertainty of
+`<standard_name>`, or `number_of_observations` for a count. Uncertainties of
+a temperature are temperature differences, so they need `units_metadata:
+"temperature: difference"`, and `esa_cci.convert_units` cannot convert them:
+it would subtract 273.15 when converting K to degC.
+
 ## Tests
 
 - `tests/unit/`: fast tests on a small synthetic dataset from

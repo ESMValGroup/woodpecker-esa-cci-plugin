@@ -70,6 +70,18 @@ pass to woodpecker.
     `esacci.SST.day.L4.SSTdepth.multi-sensor.multi-platform.OSTIA.1-1.r1`
     and `esacci.SST.day.L4.SSTdepth.multi-sensor.multi-platform.OSTIA.2-1.sst`
 
+The recipes keep the uncertainty information as ancillary variables of
+`prw` and `tos`, which iris loads as ancillary variables of the cube:
+
+- Water vapour: `tcwv_err`, the mean of the retrieval uncertainties, as the
+  standard error of `prw`; `tcwv_ran`, their root mean square; `stdv`, the
+  standard deviation of the retrievals; and in v3.2 `num_obs`, the number
+  of retrievals.
+- Sea surface temperature: the standard error of `tos`, `analysis_error`
+  in OSTIA 1-1 and `analysed_sst_uncertainty` in OSTIA 2-1, and for GMPE
+  the spread and the size of the ensemble of analyses, `standard_deviation`
+  and `analysis_number`.
+
 The 0.05° daily datasets have storage chunks of a few MB, so with those as
 dask chunks, each recipe step adds hundreds of thousands of tasks to the
 dask graph, which takes several GB of memory. Use dask chunks of ~128 MB

@@ -1,17 +1,18 @@
+# The SST analyses differ in their uncertainty variables, so there is a
+# recipe for each product. Steps with options that are the same in all
+# recipes are defined in the first recipe, and reused in the others with
+# YAML aliases (*name).
 recipes:
   - id: esa_cci.sea_surface_temperature
     description: >-
       Prepare ESA CCI daily level 4 sea surface temperature (SST) analyses
+      from GMPE
     match:
       path_patterns:
         # GMPE, the median of an ensemble of SST analyses, in the zarr and
         # Open Data Portal stores.
         - "*ESACCI-L4_GHRSST-SST-GMPE-GLOB_*"
         - "*esacci.SST.day.L4.SSTskin.Unspecified.Unspecified.GMPE.*"
-        # OSTIA analyses in the Open Data Portal store, but not the
-        # OSTIA.2-1.anomaly dataset, because CMIP7 has no SST anomalies.
-        - "*esacci.SST.day.L4.SSTdepth.multi-sensor.multi-platform.OSTIA.1-1.r1"
-        - "*esacci.SST.day.L4.SSTdepth.multi-sensor.multi-platform.OSTIA.2-1.sst"
     steps:
       # Steps run in the order listed here. The variables are renamed last,
       # so all steps use the original variable names. Woodpecker allows each
@@ -25,25 +26,37 @@ recipes:
       - id: esa_cci.remove_xcube_cci_odp_attributes
       # Datasets in the zarr store have no time bounds, so add them before
       # the steps that change the bounds.
-      - id: esa_cci.center_time
+      - &center_time
+        id: esa_cci.center_time
         options:
           coordinate: time
           frequency: day
       # GMPE has no latitude and longitude bounds. Before normalizing the
       # longitude, so the bounds are wrapped too.
-      - id: esa_cci.add_bounds
+      - &add_bounds
+        id: esa_cci.add_bounds
         options:
           coordinates: [lat, lon]
       - id: esa_cci.set_attributes
         options:
           attributes:
-            analysed_sst:
+            analysed_sst: &sst_attributes
               standard_name: sea_surface_temperature
               long_name: Sea Surface Temperature
               cell_methods: "area: mean where sea time: mean"
               # The temperature is not a temperature difference.
               units_metadata: "temperature: on_scale"
-            time:
+              # Keeps the spread and the size of the ensemble when selecting
+              # variables.
+              ancillary_variables: standard_deviation analysis_number
+            # The spread of the ensemble of analyses. It indicates their
+            # uncertainty, but is not an estimate of the error, so it has no
+            # CF standard name.
+            standard_deviation:
+              units_metadata: "temperature: difference"
+            analysis_number:
+              units: "1"
+            time: &time_attributes
               # xarray decodes the times to numpy datetime64 or cftime,
               # which do not count leap seconds. Times that are not decoded
               # are converted with them by esa_cci.set_time_units.
@@ -51,30 +64,40 @@ recipes:
       - id: esa_cci.remove_attributes
         options:
           attributes:
-            # Bounds variables inherit the standard_name and long_name of
-            # their coordinate, and CF recommends leaving them out. The Open
-            # Data Portal store sets the invalid standard_name time_bnds.
-            lat_bnds: &bounds [standard_name, long_name, comment]
-            lon_bnds: *bounds
-            time_bnds: *bounds
-            # Empty in OSTIA 1-1, and the same as reference_datum in OSTIA
-            # 2-1.
-            lat: [comment]
-            lon: [comment]
+            <<: &coordinate_attributes
+              # Bounds variables inherit the standard_name and long_name of
+              # their coordinate, and CF recommends leaving them out. The
+              # Open Data Portal store sets the invalid standard_name
+              # time_bnds.
+              lat_bnds: &bounds [standard_name, long_name, comment]
+              lon_bnds: *bounds
+              time_bnds: *bounds
+              # Empty in OSTIA 1-1, and the same as reference_datum in
+              # OSTIA 2-1.
+              lat: [comment]
+              lon: [comment]
+            # Empty.
+            standard_deviation: [comment]
+            analysis_number: [comment]
       - id: esa_cci.set_global_attributes
         options:
-          attributes:
+          attributes: &global_attributes
             Conventions: CF-1.11
             # The CMIP7 variable, after renaming.
             variable_id: tos
             branded_variable: tos_tavg-u-hxy-sea
             frequency: day
             realm: ocean
-      - id: esa_cci.remove_global_attributes
+      - &remove_global_attributes
+        id: esa_cci.remove_global_attributes
         options:
           # Empty.
           attributes: [comment]
-      - id: esa_cci.convert_units
+      # The uncertainties keep their units: they are temperature
+      # differences, and this fix would convert them as temperatures,
+      # subtracting 273.15.
+      - &convert_units
+        id: esa_cci.convert_units
         options:
           units:
             analysed_sst: degC
@@ -83,25 +106,116 @@ recipes:
       - id: esa_cci.set_data_types
         options:
           data_types:
-            analysed_sst: float32
-            lat: float64
-            lon: float64
-            lat_bnds: float64
-            lon_bnds: float64
-      - id: esa_cci.set_time_units
+            <<: &data_types
+              analysed_sst: float32
+              lat: float64
+              lon: float64
+              lat_bnds: float64
+              lon_bnds: float64
+            standard_deviation: float32
+            analysis_number: float32
+      - &set_time_units
+        id: esa_cci.set_time_units
         options:
           coordinate: time
           units: days since 1850-01-01
           # xarray decodes the times to numpy datetime64, which uses the
           # proleptic Gregorian calendar.
           calendar: proleptic_gregorian
-      - id: esa_cci.normalize_longitude
+      - &normalize_longitude
+        id: esa_cci.normalize_longitude
         options:
           coordinate: lon
-      - id: esa_cci.select_variables
+      - &select_variables
+        id: esa_cci.select_variables
         options:
           variables: [analysed_sst]
-      - id: woodpecker.rename_variables
+      - &rename_variables
+        id: woodpecker.rename_variables
         options:
           mapping:
             tos: [analysed_sst]
+
+  # OSTIA analyses in the Open Data Portal store, but not the
+  # OSTIA.2-1.anomaly dataset, because CMIP7 has no SST anomalies.
+  - id: esa_cci.sea_surface_temperature_ostia_v1
+    description: >-
+      Prepare ESA CCI daily level 4 sea surface temperature (SST) analyses
+      from OSTIA, v1.1
+    match:
+      path_patterns:
+        - "*esacci.SST.day.L4.SSTdepth.multi-sensor.multi-platform.OSTIA.1-1.r1"
+    steps:
+      - id: esa_cci.remove_packing
+      - id: esa_cci.remove_range_attributes
+      - id: esa_cci.remove_xcube_cci_odp_attributes
+      - *center_time
+      - *add_bounds
+      - id: esa_cci.set_attributes
+        options:
+          attributes:
+            analysed_sst:
+              <<: *sst_attributes
+              ancillary_variables: analysis_error
+            # The estimated error standard deviation of analysed_sst.
+            analysis_error: &sst_uncertainty_attributes
+              standard_name: sea_surface_temperature standard_error
+              # CF requires this for the standard_error of a temperature.
+              units_metadata: "temperature: difference"
+            time: *time_attributes
+      - id: esa_cci.remove_attributes
+        options:
+          attributes: *coordinate_attributes
+      - id: esa_cci.set_global_attributes
+        options:
+          attributes: *global_attributes
+      - *remove_global_attributes
+      - *convert_units
+      - id: esa_cci.set_data_types
+        options:
+          data_types:
+            <<: *data_types
+            analysis_error: float32
+      - *set_time_units
+      - *normalize_longitude
+      - *select_variables
+      - *rename_variables
+
+  - id: esa_cci.sea_surface_temperature_ostia_v2
+    description: >-
+      Prepare ESA CCI daily level 4 sea surface temperature (SST) analyses
+      from OSTIA, v2.1
+    match:
+      path_patterns:
+        - "*esacci.SST.day.L4.SSTdepth.multi-sensor.multi-platform.OSTIA.2-1.sst"
+    steps:
+      - id: esa_cci.remove_packing
+      - id: esa_cci.remove_range_attributes
+      - id: esa_cci.remove_xcube_cci_odp_attributes
+      - *center_time
+      - *add_bounds
+      - id: esa_cci.set_attributes
+        options:
+          attributes:
+            analysed_sst:
+              <<: *sst_attributes
+              ancillary_variables: analysed_sst_uncertainty
+            analysed_sst_uncertainty: *sst_uncertainty_attributes
+            time: *time_attributes
+      - id: esa_cci.remove_attributes
+        options:
+          attributes: *coordinate_attributes
+      - id: esa_cci.set_global_attributes
+        options:
+          attributes: *global_attributes
+      - *remove_global_attributes
+      - *convert_units
+      - id: esa_cci.set_data_types
+        options:
+          data_types:
+            <<: *data_types
+            analysed_sst_uncertainty: float32
+      - *set_time_units
+      - *normalize_longitude
+      - *select_variables
+      - *rename_variables
