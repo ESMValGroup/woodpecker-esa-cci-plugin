@@ -30,6 +30,39 @@ recipes:
               cell_methods: "area: time: mean"
               # Keeps crs when selecting variables.
               grid_mapping: crs
+              # Keeps the uncertainties, the standard deviation and the
+              # number of retrievals when selecting variables.
+              ancillary_variables: stdv num_obs tcwv_err tcwv_ran
+            # The monthly values are the means of the daily values, except
+            # num_obs, which is their sum, as described in the Product User
+            # Guide (D4.3, issue 2.2) and checked against the daily data.
+            stdv: &stdv_attributes
+              # The standard deviation of the retrievals in the grid cell.
+              standard_name: atmosphere_mass_content_of_water_vapor
+              cell_methods: >-
+                area: time: standard_deviation within days
+                time: mean over days
+            num_obs: &num_obs_attributes
+              standard_name: number_of_observations
+              units: "1"
+            tcwv_err: &tcwv_err_attributes
+              standard_name: >-
+                atmosphere_mass_content_of_water_vapor standard_error
+              comment: >-
+                Mean over the days of the month of the mean of the
+                uncertainties of the retrievals in the grid cell on each
+                day: the uncertainty of the total column water vapour if
+                their errors are fully correlated.
+            # Not the uncertainty of the total column water vapour, so it has
+            # no CF standard name.
+            tcwv_ran: &tcwv_ran_attributes
+              # The name in the Product User Guide. Some stores call it
+              # Random retrieval uncertainty.
+              long_name: Propagated retrieval uncertainty
+              comment: >-
+                Mean over the days of the month of the root mean square of
+                the uncertainties of the retrievals in the grid cell on each
+                day.
             time: &time_attributes
               # xarray decodes the times to numpy datetime64 or cftime,
               # which do not count leap seconds. Times that are not decoded
@@ -39,13 +72,14 @@ recipes:
               # The Kerchunk and Open Data Portal stores have a trailing
               # space in the units.
               units: degrees_north
-      - id: esa_cci.remove_attributes
+      - &remove_attributes
+        id: esa_cci.remove_attributes
         options:
           attributes:
-            # Not valid CF standard_names.
+            # Not valid CF standard_names. The other variables get valid
+            # ones from esa_cci.set_attributes.
             crs: [standard_name]
-            stdv: [standard_name]
-            num_obs: [standard_name]
+            tcwv_ran: [standard_name]
             # Bounds variables inherit the standard_name and long_name of
             # their coordinate, and CF recommends leaving them out. The Open
             # Data Portal store sets the invalid standard_name time_bnds.
@@ -85,6 +119,9 @@ recipes:
         options:
           units:
             tcwv: kg m-2
+            stdv: kg m-2
+            tcwv_err: kg m-2
+            tcwv_ran: kg m-2
       # CMIP7 stores data in single precision, and coordinates in double
       # precision.
       - &set_data_types
@@ -130,17 +167,26 @@ recipes:
         options:
           attributes:
             tcwv: *tcwv_attributes
+            stdv: &daily_stdv_attributes
+              <<: *stdv_attributes
+              cell_methods: "area: time: standard_deviation"
+            num_obs: *num_obs_attributes
+            tcwv_err: &daily_tcwv_err_attributes
+              <<: *tcwv_err_attributes
+              comment: >-
+                Mean of the uncertainties of the retrievals in the grid
+                cell: the uncertainty of the total column water vapour if
+                their errors are fully correlated.
+            tcwv_ran: &daily_tcwv_ran_attributes
+              <<: *tcwv_ran_attributes
+              comment: >-
+                Root mean square of the uncertainties of the retrievals in
+                the grid cell. Divided by the square root of the number of
+                retrievals, it is the uncertainty of the total column water
+                vapour if their errors are uncorrelated.
             time: *time_attributes
             lat: *lat_attributes
-      - id: esa_cci.remove_attributes
-        options:
-          attributes:
-            crs: [standard_name]
-            stdv: [standard_name]
-            num_obs: [standard_name]
-            lat_bnds: *bounds
-            lon_bnds: *bounds
-            time_bnds: *bounds
+      - *remove_attributes
       - id: esa_cci.set_global_attributes
         options:
           attributes:
@@ -178,17 +224,13 @@ recipes:
             tcwv: &tcwv_v4_attributes
               <<: *tcwv_attributes
               # It refers to num_obs, which does not exist.
-              ancillary_variables: stdv
+              ancillary_variables: stdv tcwv_err tcwv_ran
+            stdv: *stdv_attributes
+            tcwv_err: *tcwv_err_attributes
+            tcwv_ran: *tcwv_ran_attributes
             time: *time_attributes
             lat: *lat_attributes
-      - id: esa_cci.remove_attributes
-        options:
-          attributes: &v4_attributes
-            crs: [standard_name]
-            stdv: [standard_name]
-            lat_bnds: *bounds
-            lon_bnds: *bounds
-            time_bnds: *bounds
+      - *remove_attributes
       - id: esa_cci.set_global_attributes
         options:
           attributes: *global_attributes
@@ -219,11 +261,12 @@ recipes:
         options:
           attributes:
             tcwv: *tcwv_v4_attributes
+            stdv: *daily_stdv_attributes
+            tcwv_err: *daily_tcwv_err_attributes
+            tcwv_ran: *daily_tcwv_ran_attributes
             time: *time_attributes
             lat: *lat_attributes
-      - id: esa_cci.remove_attributes
-        options:
-          attributes: *v4_attributes
+      - *remove_attributes
       - id: esa_cci.set_global_attributes
         options:
           attributes:

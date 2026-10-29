@@ -66,6 +66,8 @@ def test_recipe_fixes_dataset(tcwv_dataset: xr.Dataset) -> None:
         "prw",
         "stdv",
         "num_obs",
+        "tcwv_err",
+        "tcwv_ran",
         "crs",
         "lat_bnds",
         "lon_bnds",
@@ -82,6 +84,7 @@ def test_recipe_fixes_dataset(tcwv_dataset: xr.Dataset) -> None:
             "units",
             "cell_methods",
             "grid_mapping",
+            "ancillary_variables",
         )
     } == {
         "standard_name": "atmosphere_mass_content_of_water_vapor",
@@ -89,10 +92,25 @@ def test_recipe_fixes_dataset(tcwv_dataset: xr.Dataset) -> None:
         "units": "kg m-2",
         "cell_methods": "area: time: mean",
         "grid_mapping": "crs",
+        "ancillary_variables": "stdv num_obs tcwv_err tcwv_ran",
     }
-    for name in ("stdv", "num_obs"):
-        assert "standard_name" not in tcwv_dataset[name].attrs
     assert tcwv_dataset["time"].attrs["units_metadata"] == "leap_seconds: none"
+
+    # The uncertainties are kept, with CF standard names where they fit.
+    standard_names = {
+        "stdv": "atmosphere_mass_content_of_water_vapor",
+        "num_obs": "number_of_observations",
+        "tcwv_err": "atmosphere_mass_content_of_water_vapor standard_error",
+    }
+    for name, standard_name in standard_names.items():
+        assert tcwv_dataset[name].attrs["standard_name"] == standard_name
+    assert "standard_name" not in tcwv_dataset["tcwv_ran"].attrs
+    assert tcwv_dataset["stdv"].attrs["cell_methods"] == (
+        "area: time: standard_deviation within days time: mean over days"
+    )
+    assert tcwv_dataset["num_obs"].attrs["units"] == "1"
+    for name in ("stdv", "tcwv_err", "tcwv_ran"):
+        assert tcwv_dataset[name].attrs["units"] == "kg m-2"
 
     # CF does not allow hyphens in attribute names.
     attrs = tcwv_dataset.attrs
