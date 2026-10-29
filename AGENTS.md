@@ -28,9 +28,11 @@ pixi run test   # pytest, with coverage
 pixi run lint   # pre-commit: ruff, mypy and basic checks
 ```
 
-Run both before considering a change done. Ruff enables all rules with a
-line length of 79, and mypy runs in strict mode on `src` and `tests`. After
-changing the dependencies in `pyproject.toml`, run `pixi lock`.
+Run both before considering a change done. pre-commit only checks the files
+that git tracks, so `git add` new files before running the lint. Ruff
+enables all rules with a line length of 79, and mypy runs in strict mode on
+`src` and `tests`. After changing the dependencies in `pyproject.toml`, run
+`pixi lock`.
 
 ## Code layout
 
