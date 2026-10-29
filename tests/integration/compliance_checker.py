@@ -13,14 +13,23 @@ netcdf4 = pytest.importorskip("netCDF4")
 suite = pytest.importorskip("compliance_checker.suite")
 
 
-# Messages of the CF checker that are not CF violations. CF allows a
-# standard name in the cell_methods, for a method over a coordinate that the
-# variable does not have, such as "longitude: mean" for zonal means, while
-# the checker requires a dimension or coordinate of the variable.
+# Messages of the checkers that are not violations. CF allows a standard
+# name in the cell_methods, for a method over a coordinate that the variable
+# does not have, such as "longitude: mean" for zonal means, while the CF
+# checker requires a dimension or coordinate of the variable. The CMIP7
+# checker expects the long_name of the root variable chl, shared by all its
+# branded variables, instead of that of the branded variable
+# chl_tavg-ols-hxy-sea, which the ESMValCore CMIP7 table also has.
 FALSE_POSITIVES = (
     (
         "cell_methods name component longitude does not match a dimension, "
         "area or auxiliary coordinate"
+    ),
+    (
+        "Expected 'Mass Concentration of Total Phytoplankton Expressed as "
+        "Chlorophyll in Sea Water' from registry key 'long_name', got "
+        "'Surface Mass Concentration of Total Phytoplankton Expressed as "
+        "Chlorophyll in Sea Water'"
     ),
 )
 # The regions of the subsets of the polar grids, with land and sea, as

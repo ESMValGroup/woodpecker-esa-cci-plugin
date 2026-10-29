@@ -116,6 +116,15 @@ pass to woodpecker.
     from the limb profile products of GOMOS, MIPAS, OSIRIS, SCIAMACHY and
     SMR: `esacci.OZONE.mon.L3.LP.*.v0001.r1`. They cover the levels from
     the upper troposphere up, so the lower levels are missing values.
+- Ocean colour, daily and monthly merged v6.0 on the 4 km geographic grid,
+  as the CMIP7 variable `chl` at the sea surface (`chl_tavg-ols-hxy-sea`),
+  from the chlorophyll-a concentration `chlor_a`:
+  - zarr store, the products with all ocean colour variables:
+    `ESACCI-OC-L3S-OC_PRODUCTS-MERGED-{1D_DAILY,1M_MONTHLY}_4km_GEO_PML_OCx_QAA-1997-2022-fv6.0.zarr`
+  - Kerchunk store, monthly:
+    `ESACCI-OC-L3S-CHLOR_A-MERGED-1M_MONTHLY_4km_GEO_PML_OCx-199709-202212-fv6.0-kr1.1`
+  - Open Data Portal store, the chlorophyll-a and all-variable products:
+    `esacci.OC.{day,mon}.L3S.{CHLOR_A,OC_PRODUCTS}.multi-sensor.multi-platform.MERGED.6-0.geographic`
 
 The cloud and aerosol datasets provide several variables, each from its own
 recipe, named `esa_cci.<essential climate variable>_<variable>`, e.g.
@@ -172,6 +181,10 @@ iris loads as ancillary variables of the cube:
   profiles; and `sample_standard_deviation`, the standard deviation of the
   profiles. The datasets give them in percent of `o3`, and the recipe
   converts them to the units of `o3`.
+- Ocean colour: `chlor_a_log10_rmsd` and `chlor_a_log10_bias`, the
+  root-mean-square difference and bias of log10 of the chlorophyll-a
+  concentration, which are dimensionless, and the number of observations,
+  `total_nobs` in the daily and `total_nobs_sum` in the monthly products.
 
 The 0.05° daily datasets have storage chunks of a few MB, so with those as
 dask chunks, each recipe step adds hundreds of thousands of tasks to the
@@ -188,6 +201,24 @@ data_id = (
     "TCWV_land_005deg.3-2.r1"
 )
 dataset = new_data_store("cciodp").open_data(data_id).chunk("auto")
+```
+
+The ocean colour `OC_PRODUCTS` datasets contain about 90 variables, and the
+recipes keep only `chlor_a` and its uncertainties. Opening all variables of
+the daily dataset from the Open Data Portal store takes more than 3 GB, so
+pass the variables to keep:
+
+```python
+dataset = new_data_store("cciodp").open_data(
+    "esacci.OC.day.L3S.OC_PRODUCTS.multi-sensor.multi-platform.MERGED."
+    "6-0.geographic",
+    variable_names=[
+        "chlor_a",
+        "chlor_a_log10_rmsd",
+        "chlor_a_log10_bias",
+        "total_nobs",
+    ],
+)
 ```
 
 For the CMIP7 variables that other ESA CCI datasets could provide, see

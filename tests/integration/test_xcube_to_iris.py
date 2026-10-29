@@ -25,6 +25,8 @@ def test_loads_with_iris_without_warnings(
 ) -> None:
     store = xcube_store.new_data_store(case.store)
     dataset = store.open_data(case.data_id)
+    if case.variable_names is not None:
+        dataset = dataset[list(case.variable_names)]
     if case.store == "ccikc" and not full_time_axis:
         dataset = dataset.isel(time=slice(case.opened_time_steps))
     dataset = dataset.chunk(CHUNKS)

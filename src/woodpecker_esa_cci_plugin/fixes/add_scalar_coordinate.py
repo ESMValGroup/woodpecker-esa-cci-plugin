@@ -19,7 +19,7 @@ from .set_attributes import Attributes, _equal
 class ScalarCoordinate(Options):
     """The value and attributes of a scalar coordinate."""
 
-    value: float
+    value: float | str
     attributes: Attributes
 
 
@@ -35,7 +35,24 @@ def _expected(coordinate: ScalarCoordinate) -> xr.Variable:
     """Return the scalar coordinate variable of ``coordinate``."""
     # Copy, so datasets do not share lists or dicts with the recipe options.
     attrs = copy.deepcopy(coordinate.attributes)
+    if isinstance(coordinate.value, str):
+        # Stored as a character array, like CMOR does, because not all
+        # software reads netCDF-4 strings.
+        return xr.Variable(
+            (),
+            np.str_(coordinate.value),
+            attrs=attrs,
+            encoding={"dtype": "S1"},
+        )
     return xr.Variable((), np.float64(coordinate.value), attrs=attrs)
+
+
+def _format(variable: xr.Variable) -> str:
+    """Return the value of the scalar coordinate ``variable`` as text."""
+    value = variable.to_numpy()[()]
+    if isinstance(value, str):
+        return repr(str(value))
+    return f"{value:g}"
 
 
 @register_fix_function
@@ -43,8 +60,9 @@ class AddScalarCoordinate(ConfigurableFix[AddScalarCoordinateOptions]):
     """Add scalar coordinates where they are missing or wrong.
 
     The coordinates are configured with the ``coordinates`` option, a
-    mapping from coordinate name to its ``value`` and ``attributes``. The
-    coordinate is stored in double precision. A variable with the same name
+    mapping from coordinate name to its ``value`` and ``attributes``. A
+    numeric coordinate is stored in double precision, and a string
+    coordinate as a character array. A variable with the same name
     that is not a scalar coordinate raises an error.
     """
 
@@ -53,10 +71,12 @@ class AddScalarCoordinate(ConfigurableFix[AddScalarCoordinateOptions]):
     description = (
         "Adds the scalar coordinates configured with the coordinates option, "
         "a mapping from coordinate name to its value and attributes, when "
-        "they are missing or have another value or attributes. CMIP7 "
-        "describes some variables with a scalar coordinate, e.g. the "
-        "wavelength of 550 nm of the aerosol optical depth od550aer, which "
-        "the ESA CCI datasets only give in the variable name."
+        "they are missing or have another value or attributes. The value "
+        "is a number or a string. CMIP7 describes some variables with a "
+        "scalar coordinate, e.g. the wavelength of 550 nm of the aerosol "
+        "optical depth od550aer, which the ESA CCI datasets only give in "
+        "the variable name, or the ocean surface layer of the surface "
+        "chlorophyll concentration chl, a string coordinate."
     )
     categories = ["coordinates"]  # noqa: RUF012
     priority = 50
@@ -97,7 +117,7 @@ class AddScalarCoordinate(ConfigurableFix[AddScalarCoordinateOptions]):
         """Return a finding message for each detected problem."""
         return [
             f"{name} is missing or differs from the expected scalar "
-            f"coordinate with value {variable.to_numpy():g}"
+            f"coordinate with value {_format(variable)}"
             for name, variable in self._wrong(dataset).items()
         ]
 

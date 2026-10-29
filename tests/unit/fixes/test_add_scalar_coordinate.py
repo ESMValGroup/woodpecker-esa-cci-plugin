@@ -52,6 +52,38 @@ def test_coordinate_is_added(tcwv_dataset: xr.Dataset) -> None:
     assert not woodpecker.check(tcwv_dataset, fixes=FIX_ID, options=OPTIONS)
 
 
+def test_string_coordinate_is_added(tcwv_dataset: xr.Dataset) -> None:
+    options = {
+        FIX_ID: {
+            "coordinates": {
+                "seasurface": {
+                    "value": "ocean_surface_layer",
+                    "attributes": {"long_name": "Ocean surface coordinate"},
+                },
+            },
+        },
+    }
+    findings = woodpecker.check(tcwv_dataset, fixes=FIX_ID, options=options)
+    messages = [finding["message"] for finding in findings.findings]
+    assert messages == [
+        (
+            "seasurface is missing or differs from the expected scalar "
+            "coordinate with value 'ocean_surface_layer'"
+        ),
+    ]
+
+    woodpecker.apply(
+        tcwv_dataset, fixes=FIX_ID, dry_run=False, options=options
+    )
+    seasurface = tcwv_dataset.coords["seasurface"]
+    assert seasurface.dims == ()
+    assert seasurface.item() == "ocean_surface_layer"
+    assert not woodpecker.check(tcwv_dataset, fixes=FIX_ID, options=options)
+
+    # It is written as a character array.
+    assert seasurface.encoding["dtype"] == "S1"
+
+
 @pytest.mark.parametrize(
     "coordinate",
     [

@@ -93,6 +93,13 @@ KERCHUNK_REFERENCES = {
             ),
         )
     },
+    (
+        "ESACCI-OC-L3S-CHLOR_A-MERGED-1M_MONTHLY_4km_GEO_PML_OCx-199709-"
+        "202212-fv6.0-kr1.1"
+    ): (
+        "ocean_colour/metadata/kerchunk/v6.0-release/geographic/netcdf/"
+        "chlor_a/monthly/v6.0"
+    ),
 }
 # The number of time steps that the tests use of the Kerchunk and Open Data
 # Portal datasets, unless pytest runs with --full-time-axis, and that they
@@ -148,6 +155,13 @@ CLOUD_DATASETS: tuple[tuple[Store, str], ...] = (
         for orbit in ("AM", "PM")
     ),
 )
+# The variables that the daily ocean colour recipe keeps.
+OC_DAILY_VARIABLES = (
+    "chlor_a",
+    "chlor_a_log10_rmsd",
+    "chlor_a_log10_bias",
+    "total_nobs",
+)
 # The Open Data Portal datasets of the water vapour recipes.
 ODP_WATER_VAPOUR = (
     "esacci.WATERVAPOUR.{frequency}.L3S.TCWV.multi-sensor.multi-platform."
@@ -163,7 +177,9 @@ class Case(NamedTuple):
     variables, each from its own recipe, ``recipe_id`` selects the recipe.
     Without --full-time-axis, ``opened_time_steps`` of the Kerchunk and Open
     Data Portal datasets are opened, which is more than ``TIME_STEPS`` for
-    recipes that remove time steps.
+    recipes that remove time steps. Datasets with many variables can be
+    opened with only ``variable_names``, because the dask graph of all
+    variables takes GBs of memory.
     """
 
     store: Store
@@ -171,6 +187,7 @@ class Case(NamedTuple):
     variable_id: str
     recipe_id: str | None = None
     opened_time_steps: int = TIME_STEPS
+    variable_names: tuple[str, ...] | None = None
 
     @property
     def id(self) -> str:
@@ -321,6 +338,47 @@ CASES = [
             "SMR.ODIN.SMR_ODIN",
         )
     ),
+    # The daily datasets with all ~90 ocean colour variables are opened with
+    # only those that the recipe keeps.
+    Case(
+        "ccizarr",
+        "ESACCI-OC-L3S-OC_PRODUCTS-MERGED-1M_MONTHLY_4km_GEO_PML_OCx_QAA-"
+        "1997-2022-fv6.0.zarr",
+        "chl",
+    ),
+    Case(
+        "ccizarr",
+        "ESACCI-OC-L3S-OC_PRODUCTS-MERGED-1D_DAILY_4km_GEO_PML_OCx_QAA-"
+        "1997-2022-fv6.0.zarr",
+        "chl",
+        variable_names=OC_DAILY_VARIABLES,
+    ),
+    Case(
+        "ccikc",
+        "ESACCI-OC-L3S-CHLOR_A-MERGED-1M_MONTHLY_4km_GEO_PML_OCx-199709-"
+        "202212-fv6.0-kr1.1",
+        "chl",
+    ),
+    *(
+        Case(
+            "cciodp",
+            f"esacci.OC.{frequency}.L3S.{product}.multi-sensor."
+            "multi-platform.MERGED.6-0.geographic",
+            "chl",
+        )
+        for frequency, product in (
+            ("mon", "CHLOR_A"),
+            ("mon", "OC_PRODUCTS"),
+            ("day", "CHLOR_A"),
+        )
+    ),
+    Case(
+        "cciodp",
+        "esacci.OC.day.L3S.OC_PRODUCTS.multi-sensor.multi-platform.MERGED."
+        "6-0.geographic",
+        "chl",
+        variable_names=OC_DAILY_VARIABLES,
+    ),
 ]
 
 
@@ -364,7 +422,12 @@ def _open_dataset(
         xcube_store = pytest.importorskip("xcube.core.store")
         if not decode_times:
             pytest.skip("The Open Data Portal store always decodes the times")
-        dataset = xcube_store.new_data_store("cciodp").open_data(case.data_id)
+        params = {}
+        if case.variable_names is not None:
+            params["variable_names"] = list(case.variable_names)
+        dataset = xcube_store.new_data_store("cciodp").open_data(
+            case.data_id, **params
+        )
         # The store has no option to set the chunks. With only a few time
         # steps, the dask graph is small with the storage chunks, and larger
         # dask chunks would read more files.
@@ -378,6 +441,8 @@ def _open_dataset(
                     if dim in dataset.dims
                 }
             )
+    if case.variable_names is not None:
+        dataset = dataset[list(case.variable_names)]
     if case.store != "ccizarr" and not full_time_axis:
         dataset = dataset.isel(time=slice(case.opened_time_steps))
     return dataset
