@@ -59,10 +59,13 @@ of letting `esa_cci.select_variables` drop them. List them in the
 kept, and iris loads them as ancillary variables of the same cube. Check the
 product user guide for what each one means, and give it a CF standard name
 where one fits, e.g. `<standard_name> standard_error` for an uncertainty of
-`<standard_name>`, or `number_of_observations` for a count. Uncertainties of
-a temperature are temperature differences, so they need `units_metadata:
-"temperature: difference"`, and `esa_cci.convert_units` cannot convert them:
-it would subtract 273.15 when converting K to degC.
+`<standard_name>`, or `number_of_observations` for a count. Give them the
+units of the selected variable, except counts, which have units `1`.
+Uncertainties of a temperature are temperature differences, so they need
+`units_metadata: "temperature: difference"`, and `esa_cci.convert_units`
+cannot convert them: it would subtract 273.15 when converting K to degC.
+Since a difference has the same value in K and degC, set their units to
+degC with `esa_cci.set_attributes` instead.
 
 ## Tests
 

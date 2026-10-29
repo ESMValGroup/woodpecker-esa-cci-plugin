@@ -52,7 +52,10 @@ recipes:
             # The spread of the ensemble of analyses. It indicates their
             # uncertainty, but is not an estimate of the error, so it has no
             # CF standard name.
-            standard_deviation:
+            standard_deviation: &sst_difference_attributes
+              # The units of tos. A temperature difference has the same value
+              # in K and degC, so the values stay the same.
+              units: degC
               units_metadata: "temperature: difference"
             analysis_number:
               units: "1"
@@ -93,9 +96,9 @@ recipes:
         options:
           # Empty.
           attributes: [comment]
-      # The uncertainties keep their units: they are temperature
-      # differences, and this fix would convert them as temperatures,
-      # subtracting 273.15.
+      # Not the uncertainties: they are temperature differences, and this
+      # fix would convert them as temperatures, subtracting 273.15. They get
+      # the units of tos from esa_cci.set_attributes instead.
       - &convert_units
         id: esa_cci.convert_units
         options:
@@ -159,9 +162,8 @@ recipes:
               ancillary_variables: analysis_error
             # The estimated error standard deviation of analysed_sst.
             analysis_error: &sst_uncertainty_attributes
+              <<: *sst_difference_attributes
               standard_name: sea_surface_temperature standard_error
-              # CF requires this for the standard_error of a temperature.
-              units_metadata: "temperature: difference"
             time: *time_attributes
       - id: esa_cci.remove_attributes
         options:

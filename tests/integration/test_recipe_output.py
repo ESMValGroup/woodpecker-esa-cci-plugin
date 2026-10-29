@@ -201,6 +201,20 @@ def test_loads_with_iris_without_warnings(
     assert cubes[0].var_name == case.variable_id
 
 
+def test_uncertainties_have_the_units_of_the_variable(
+    case: Case,
+    fixed_dataset: xr.Dataset,
+) -> None:
+    variable = fixed_dataset[case.variable_id]
+    names = variable.attrs["ancillary_variables"].split()
+    assert names
+    for name in names:
+        attrs = fixed_dataset[name].attrs
+        # Counts, such as the number of observations, are dimensionless.
+        if attrs["units"] != "1":
+            assert attrs["units"] == variable.attrs["units"], name
+
+
 def test_passes_cmip7_cmor_check(
     case: Case,
     fixed_dataset: xr.Dataset,
