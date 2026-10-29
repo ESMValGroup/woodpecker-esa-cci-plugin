@@ -27,24 +27,72 @@ STORAGE_OPTIONS = {
     "anon": True,
     "client_kwargs": {"endpoint_url": "https://cci-ke-o.s3-ext.jc.rl.ac.uk"},
 }
-# The Kerchunk references of the xcube-cci "ccikc" data store.
-KERCHUNK_URL = (
-    "https://data.cci.ceda.ac.uk/thredds/fileServer/esacci/water_vapour/"
-    "metadata/kerchunk/TCWV-land/L3/v3.2"
-)
+# The Kerchunk references of the xcube-cci "ccikc" data store: the
+# directory below KERCHUNK_URL of the references of each dataset, as listed
+# in xcube_cci/data/kc_refs.json.
+KERCHUNK_URL = "https://data.cci.ceda.ac.uk/thredds/fileServer/esacci"
+WATER_VAPOUR_REFERENCES = "water_vapour/metadata/kerchunk/TCWV-land/L3/v3.2"
+SALINITY_REFERENCES = "sea_surface_salinity/metadata/kerchunk"
 KERCHUNK_REFERENCES = {
     "ESACCI-WATERVAPOUR-L3C-TCWV-meris-005deg-20020701-20171231-fv3.2-kr1.1": (
-        "0.05deg/daily"
+        f"{WATER_VAPOUR_REFERENCES}/0.05deg/daily"
     ),
     "ESACCI-WATERVAPOUR-L3C-TCWV-meris-05deg-20020701-20171231-fv3.2-kr1.1": (
-        "0.5deg/daily"
+        f"{WATER_VAPOUR_REFERENCES}/0.5deg/daily"
     ),
     "ESACCI-WATERVAPOUR-L3C-TCWV-meris-005deg-200207-201712-fv3.2-kr1.1": (
-        "0.05deg/monthly"
+        f"{WATER_VAPOUR_REFERENCES}/0.05deg/monthly"
     ),
     "ESACCI-WATERVAPOUR-L3C-TCWV-meris-05deg-200207-201712-fv3.2-kr1.1": (
-        "0.5deg/monthly"
+        f"{WATER_VAPOUR_REFERENCES}/0.5deg/monthly"
     ),
+    "ESACCI-L3C_CLOUD-CLD_PRODUCTS-AVHRR_AM-199109-201612-fv3.0-kr1.1": (
+        "cloud/metadata/kerchunk/version3/L3C/AVHRR-AM/v3.0"
+    ),
+    "ESACCI-L3C_CLOUD-CLD_PRODUCTS-AVHRR_PM-198201-201612-fv3.0-kr1.1": (
+        "cloud/metadata/kerchunk/version3/L3C/AVHRR-PM/v3.0"
+    ),
+    "ESACCI-L3C_SNOW-SCFG-AVHRR_MERGED-19820101-20181230-fv2.0_kr1.0": (
+        "snow/metadata/kerchunk/scfg/AVHRR_MERGED/v2.0"
+    ),
+    "ESACCI-L3C_SNOW-SWE-MERGED-19790102-20200524-fv2.0_kr1.2": (
+        "snow/metadata/kerchunk/swe/MERGED/v2.0"
+    ),
+    **{
+        f"ESACCI-SEASURFACESALINITY-L4-SSS-{name}": (
+            f"{SALINITY_REFERENCES}/{directory}/30days"
+        )
+        for name, directory in (
+            (
+                (
+                    "MERGED_OI_Monthly_CENTRED_15Day_25km-20100101-20191215-"
+                    "fv2.31_kr1.0"
+                ),
+                "v02.31",
+            ),
+            (
+                (
+                    "MERGED_OI_Monthly_CENTRED_15Day_25km-20100115-20200915-"
+                    "fv3.21_kr1.0"
+                ),
+                "v03.21",
+            ),
+            (
+                (
+                    "GLOBAL-MERGED_OI_Monthly_CENTRED_15Day_0.25deg-20100115-"
+                    "20221015-fv4.41_kr1.0"
+                ),
+                "v04.41/GLOBALv4.41",
+            ),
+            (
+                (
+                    "GLOBAL-MERGED_OI_Monthly_CENTRED_15Day_0.25deg-20100115-"
+                    "20231215-fv5.5-kr1.0"
+                ),
+                "v05.5/GLOBALv5.5",
+            ),
+        )
+    },
 }
 # The number of time steps that the tests use of the Kerchunk and Open Data
 # Portal datasets, unless pytest runs with --full-time-axis, and that they
@@ -63,6 +111,43 @@ CHUNKS: dict[str, int | Literal["auto"]] = {
     "lat": "auto",
     "lon": "auto",
 }
+# The CMIP7 variables of the cloud recipes, each from its own recipe
+# esa_cci.cloud_<variable>.
+CLOUD_VARIABLES = (
+    "clt",
+    "lwp",
+    "clivi",
+    "rlut",
+    "rlutcs",
+    "rsut",
+    "rsutcs",
+    "rsdt",
+    "rlus",
+    "rsus",
+    "rsuscs",
+    "rlds",
+    "rldscs",
+    "rsds",
+    "rsdscs",
+)
+# The cloud datasets that provide all of them.
+CLOUD_DATASETS: tuple[tuple[Store, str], ...] = (
+    *(
+        ("ccikc", data_id)
+        for data_id in KERCHUNK_REFERENCES
+        if "CLOUD" in data_id
+    ),
+    *(
+        (
+            "cciodp",
+            (
+                "esacci.CLOUD.mon.L3C.CLD_PRODUCTS.multi-sensor."
+                f"multi-platform.AVHRR-{orbit}.3-0.r1"
+            ),
+        )
+        for orbit in ("AM", "PM")
+    ),
+)
 # The Open Data Portal datasets of the water vapour recipes.
 ODP_WATER_VAPOUR = (
     "esacci.WATERVAPOUR.{frequency}.L3S.TCWV.multi-sensor.multi-platform."
@@ -74,12 +159,25 @@ class Case(NamedTuple):
     """A dataset and the CMIP7 variable its recipe provides.
 
     The recipe stores the realm, branded variable and frequency of the CMIP7
-    variable in the global attributes.
+    variable in the global attributes. For datasets that provide several
+    variables, each from its own recipe, ``recipe_id`` selects the recipe.
+    Without --full-time-axis, ``opened_time_steps`` of the Kerchunk and Open
+    Data Portal datasets are opened, which is more than ``TIME_STEPS`` for
+    recipes that remove time steps.
     """
 
     store: Store
     data_id: str
     variable_id: str
+    recipe_id: str | None = None
+    opened_time_steps: int = TIME_STEPS
+
+    @property
+    def id(self) -> str:
+        """Return the test id: the data id, and the recipe id if any."""
+        if self.recipe_id is None:
+            return self.data_id
+        return f"{self.data_id}-{self.recipe_id}"
 
 
 CASES = [
@@ -93,7 +191,11 @@ CASES = [
         "ESACCI-L4_GHRSST-SST-GMPE-GLOB_CDR2.0-1981-2016-v02.0-fv01.0.zarr",
         "tos",
     ),
-    *(Case("ccikc", data_id, "prw") for data_id in KERCHUNK_REFERENCES),
+    *(
+        Case("ccikc", data_id, "prw")
+        for data_id in KERCHUNK_REFERENCES
+        if "WATERVAPOUR" in data_id
+    ),
     *(
         Case(
             "cciodp",
@@ -117,6 +219,77 @@ CASES = [
         for frequency in ("day", "mon")
         for resolution in ("005deg", "05deg")
         for version in ("3-2", "4-2")
+    ),
+    Case(
+        "ccizarr",
+        "ESACCI-L3C_CLOUD-CLD_PRODUCTS-AVHRR_NOAA-1982-2016-fv3.0.zarr",
+        "clt",
+    ),
+    *(
+        Case(store, data_id, variable_id, f"esa_cci.cloud_{variable_id}")
+        for store, data_id in CLOUD_DATASETS
+        for variable_id in CLOUD_VARIABLES
+    ),
+    *(
+        Case(
+            "cciodp",
+            f"esacci.AEROSOL.{frequency}.L3C.AER_PRODUCTS.{sensor}.SU.4-3.r1",
+            variable_id,
+            f"esa_cci.aerosol_{variable_id}{suffix}",
+        )
+        for frequency, suffix in (("mon", ""), ("day", "_daily"))
+        for sensor in ("ATSR-2.ERS-2", "AATSR.Envisat")
+        for variable_id in ("od550aer", "od550lt1aer", "abs550aer")
+    ),
+    Case(
+        "ccikc",
+        "ESACCI-L3C_SNOW-SCFG-AVHRR_MERGED-19820101-20181230-fv2.0_kr1.0",
+        "snc",
+    ),
+    Case(
+        "cciodp",
+        "esacci.SNOW.day.L3C.SCFG.multi-sensor.multi-platform.AVHRR_MERGED."
+        "2-0.r1",
+        "snc",
+    ),
+    *(
+        Case("ccizarr", f"ESACCI-L3C_SNOW-SWE-{years}.zarr", "snw")
+        for years in ("1979-2018-fv1.0", "1979-2020-fv2.0")
+    ),
+    Case(
+        "ccikc",
+        "ESACCI-L3C_SNOW-SWE-MERGED-19790102-20200524-fv2.0_kr1.2",
+        "snw",
+    ),
+    *(
+        Case(
+            "cciodp",
+            "esacci.SNOW.day.L3C.SWE.multi-sensor.multi-platform.MERGED."
+            f"{version}.r1",
+            "snw",
+        )
+        for version in ("2-0", "3-1", "4-0")
+    ),
+    *(
+        # Two time steps per month, of which the recipe keeps one.
+        Case("ccikc", data_id, "sos", opened_time_steps=2 * TIME_STEPS)
+        for data_id in KERCHUNK_REFERENCES
+        if "SEASURFACESALINITY" in data_id
+    ),
+    *(
+        Case(
+            "cciodp",
+            "esacci.SEASURFACESALINITY.15-days.L4.SSS.multi-sensor."
+            f"multi-platform.{product}.r1",
+            "sos",
+            opened_time_steps=2 * TIME_STEPS,
+        )
+        for product in (
+            "MERGED_OI_Monthly_CENTRED_15Day_25km.2-31",
+            "MERGED_OI_Monthly_CENTRED_15Day_25km.3-21",
+            "GLOBAL-MERGED_OI_Monthly_CENTRED_15Day_0-25deg.4-41",
+            "GLOBAL-MERGED_OI_Monthly_CENTRED_15Day_0-25deg.5-5",
+        )
     ),
 ]
 
@@ -168,7 +341,7 @@ def _open_dataset(
         if full_time_axis:
             dataset = dataset.chunk(CHUNKS)
     if case.store != "ccizarr" and not full_time_axis:
-        dataset = dataset.isel(time=slice(TIME_STEPS))
+        dataset = dataset.isel(time=slice(case.opened_time_steps))
     return dataset
 
 
@@ -194,6 +367,7 @@ def open_fixed_dataset(
     woodpecker.recipe.apply(
         XarrayInput(payload=dataset, name=case.data_id),
         woodpecker.recipe.catalog(),
+        recipe_id=case.recipe_id,
         dry_run=False,
     )
     return dataset

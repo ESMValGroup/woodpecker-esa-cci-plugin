@@ -26,12 +26,30 @@ BOUNDS_DIMENSION = "bnds"
 STEP_TOLERANCE = 1e-3
 
 
-def _bounds(name: str, values: NDArray[np.floating]) -> NDArray[np.floating]:
-    """Return the bounds of the cells centered on ``values``."""
+def _bounds(
+    name: str,
+    values: NDArray[np.floating],
+    *,
+    varying_step: bool = False,
+) -> NDArray[np.floating]:
+    """Return the bounds of the cells centered on ``values``.
+
+    With ``varying_step``, the bounds are halfway between the values, and
+    the outer bounds half a step beyond the first and last value.
+    """
     if values.size < 2:  # noqa: PLR2004
         msg = f"Unable to add bounds to {name}: it has less than 2 values"
         raise ValueError(msg)
     steps = np.diff(values)
+    if varying_step:
+        edges = np.concatenate(
+            [
+                [values[0] - steps[0] / 2],
+                values[:-1] + steps / 2,
+                [values[-1] + steps[-1] / 2],
+            ]
+        )
+        return np.stack([edges[:-1], edges[1:]], axis=1)
     step = (values[-1] - values[0]) / (values.size - 1)
     if not np.allclose(steps, step, rtol=0, atol=STEP_TOLERANCE * abs(step)):
         msg = f"Unable to add bounds to {name}: its step size is not fixed"
@@ -43,6 +61,7 @@ class AddBoundsOptions(Options):
     """Options of :class:`AddBounds`."""
 
     coordinates: NonEmptyNames | None = None
+    varying_step: NonEmptyNames | None = None
 
 
 @register_fix_function
@@ -53,7 +72,9 @@ class AddBounds(ConfigurableFix[AddBoundsOptions]):
     dimension coordinate names. Coordinates without a ``bounds`` attribute
     get a bounds variable named after the coordinate with a ``_bnds``
     suffix, with cells that are centered on the coordinate values and as
-    wide as the step size. Coordinates that do not exist, are not dimension
+    wide as the step size. The coordinates in the ``varying_step`` option
+    may have a step size that varies, and get bounds halfway between their
+    values instead. Coordinates that do not exist, are not dimension
     coordinates or do not have a fixed step size raise an error.
     """
 
@@ -63,7 +84,11 @@ class AddBounds(ConfigurableFix[AddBoundsOptions]):
         "Adds bounds to the dimension coordinates configured with the "
         "coordinates option, a list of coordinate names, if they have none. "
         "The cells are centered on the coordinate values and as wide as the "
-        "fixed step size of the coordinate."
+        "fixed step size of the coordinate. The coordinates in the "
+        "varying_step option, e.g. the latitudes of an EASE-Grid 2.0, may "
+        "have a step size that varies, and get bounds halfway between their "
+        "values instead, which approximates the cells of a grid whose step "
+        "size varies slowly."
     )
     categories = ["coordinates"]  # noqa: RUF012
     priority = 50
@@ -91,9 +116,15 @@ class AddBounds(ConfigurableFix[AddBoundsOptions]):
                     )
                     raise ValueError(msg)
                 # Raise an error now if the bounds cannot be computed.
-                _bounds(name, dataset[name].to_numpy())
+                self._bounds(dataset, name)
                 wrong.append(name)
         return wrong
+
+    def _bounds(self, dataset: xr.Dataset, name: str) -> NDArray[np.floating]:
+        varying_step = name in (self.options.varying_step or [])
+        return _bounds(
+            name, dataset[name].to_numpy(), varying_step=varying_step
+        )
 
     def matches(self, dataset: xr.Dataset) -> bool:
         """Return whether the fix applies to ``dataset``."""
@@ -113,9 +144,8 @@ class AddBounds(ConfigurableFix[AddBoundsOptions]):
         if not dry_run:
             for name in wrong:
                 bounds = f"{name}_bnds"
-                values = dataset[name].to_numpy()
                 dataset[bounds] = xr.Variable(
-                    (name, BOUNDS_DIMENSION), _bounds(name, values)
+                    (name, BOUNDS_DIMENSION), self._bounds(dataset, name)
                 )
                 dataset[name].attrs["bounds"] = bounds
         return bool(wrong)

@@ -1,0 +1,351 @@
+# Aerosol optical depths at 550 nm from the daily and monthly level 3
+# products of the Swansea University (SU) algorithm, v4.3, for ATSR-2 and
+# AATSR. Each recipe provides one CMIP7 variable at one frequency, and the
+# recipes of a frequency match the same datasets, so select one with its
+# recipe id. Steps with options that are the same in all recipes are defined
+# in the first recipe, and reused in the others with YAML aliases (*name).
+recipes:
+  - id: esa_cci.aerosol_od550aer
+    description: >-
+      Prepare the aerosol optical depth at 550 nm (AOD550_mean) of ESA CCI
+      monthly SU aerosol datasets, v4.3, as the CMIP7 variable od550aer
+    match:
+      path_patterns: &monthly_patterns
+        - "*esacci.AEROSOL.mon.L3C.AER_PRODUCTS.*.SU.4-3.r1"
+    steps:
+      # Steps run in the order listed here. The variables are renamed last,
+      # so all steps use the original variable names. Woodpecker allows each
+      # fix only once per recipe.
+      # Packing and the range attributes become invalid when the values
+      # change, so remove them first. The time encoding is kept.
+      - id: esa_cci.remove_packing
+      - id: esa_cci.remove_range_attributes
+      # Attributes that the Open Data Portal store adds to describe the
+      # original files.
+      - id: esa_cci.remove_xcube_cci_odp_attributes
+      # The variables refer to coordinates latitude and longitude, which are
+      # named lat and lon.
+      - id: esa_cci.remove_invalid_coordinates
+      # There are no latitude and longitude bounds. Before normalizing the
+      # longitude, so the bounds are wrapped too.
+      - &add_bounds
+        id: esa_cci.add_bounds
+        options:
+          coordinates: [lat, lon]
+      # CMIP7 describes the wavelength with a scalar coordinate.
+      - &add_wavelength
+        id: esa_cci.add_scalar_coordinate
+        options:
+          coordinates:
+            wavelength:
+              value: 550
+              attributes:
+                standard_name: radiation_wavelength
+                long_name: Radiation Wavelength 550 nanometers
+                units: nm
+      - id: esa_cci.set_attributes
+        options:
+          attributes:
+            AOD550_mean:
+              # The original standard_name of all three optical depths,
+              # atmosphere_optical_thickness_due_to_ambient_aerosol, is not
+              # a CF standard name.
+              standard_name: &od550aer_standard_name >-
+                atmosphere_optical_thickness_due_to_ambient_aerosol_particles
+              long_name: Ambient Aerosol Optical Thickness at 550nm
+              cell_methods: &mean "area: time: mean"
+              # Keeps the uncertainties, the standard deviation and the
+              # number of retrievals when selecting variables.
+              ancillary_variables: >-
+                AOD550_uncertainty AOD550_uncertainty_mean AOD550_sdev
+                pixel_count
+            # The SU v4.3 version notes describe it as the propagated
+            # uncertainty, which takes estimates of the daily and monthly
+            # sampling uncertainties into account: the uncertainty of the
+            # value of the grid cell. It is larger than
+            # AOD550_uncertainty_mean.
+            AOD550_uncertainty:
+              standard_name: >-
+                atmosphere_optical_thickness_due_to_ambient_aerosol_particles
+                standard_error
+            AOD550_uncertainty_mean:
+              comment: >-
+                Mean of the uncertainties of the retrievals in the grid cell,
+                without the sampling uncertainty.
+            AOD550_sdev:
+              standard_name: *od550aer_standard_name
+              cell_methods: &standard_deviation >-
+                area: time: standard_deviation
+            pixel_count: &pixel_count_attributes
+              standard_name: number_of_observations
+            time: &time_attributes
+              # xarray decodes the times to numpy datetime64 or cftime,
+              # which do not count leap seconds.
+              units_metadata: "leap_seconds: none"
+              # Required by CMIP7 for the coordinates.
+              axis: T
+      - &remove_attributes
+        id: esa_cci.remove_attributes
+        options:
+          attributes:
+            # Bounds variables inherit the standard_name and long_name of
+            # their coordinate, and CF recommends leaving them out. The Open
+            # Data Portal store sets the invalid standard_name time_bnds.
+            lat_bnds: &bounds [standard_name, long_name, comment]
+            lon_bnds: *bounds
+            time_bnds: *bounds
+      - id: esa_cci.set_global_attributes
+        options:
+          attributes:
+            <<: &global_attributes
+              Conventions: CF-1.11
+              frequency: mon
+              realm: aerosol
+            # The CMIP7 variable, after renaming.
+            variable_id: od550aer
+            branded_variable: od550aer_tavg-u-hxy-u
+      - &set_time_units
+        id: esa_cci.set_time_units
+        options:
+          coordinate: time
+          units: days since 1850-01-01
+          # xarray decodes the times to numpy datetime64, which uses the
+          # proleptic Gregorian calendar.
+          calendar: proleptic_gregorian
+      # CMIP7 stores data in single precision, and coordinates in double
+      # precision.
+      - &set_data_types
+        id: esa_cci.set_data_types
+        options:
+          data_types:
+            AOD550_mean: float32
+            FM_AOD550_mean: float32
+            AAOD550_mean: float32
+            lat: float64
+            lon: float64
+            lat_bnds: float64
+            lon_bnds: float64
+      - &normalize_longitude
+        id: esa_cci.normalize_longitude
+        options:
+          coordinate: lon
+      - &select_od550aer
+        id: esa_cci.select_variables
+        options:
+          variables: [AOD550_mean]
+      - &rename_od550aer
+        id: woodpecker.rename_variables
+        options:
+          mapping:
+            od550aer: [AOD550_mean]
+
+  - id: esa_cci.aerosol_od550aer_daily
+    description: >-
+      Prepare the aerosol optical depth at 550 nm (AOD550_mean) of ESA CCI
+      daily SU aerosol datasets, v4.3, as the CMIP7 variable od550aer
+    match:
+      path_patterns: &daily_patterns
+        - "*esacci.AEROSOL.day.L3C.AER_PRODUCTS.*.SU.4-3.r1"
+    steps:
+      - id: esa_cci.remove_packing
+      - id: esa_cci.remove_range_attributes
+      - id: esa_cci.remove_xcube_cci_odp_attributes
+      - id: esa_cci.remove_invalid_coordinates
+      - *add_bounds
+      - *add_wavelength
+      - id: esa_cci.set_attributes
+        options:
+          attributes:
+            AOD550_mean:
+              standard_name: *od550aer_standard_name
+              long_name: Ambient Aerosol Optical Thickness at 550nm
+              cell_methods: *mean
+              ancillary_variables: >-
+                AOD550_uncertainty AOD550_uncertainty_mean AOD550_sdev
+                pixel_count
+            AOD550_uncertainty:
+              standard_name: >-
+                atmosphere_optical_thickness_due_to_ambient_aerosol_particles
+                standard_error
+            AOD550_uncertainty_mean:
+              comment: >-
+                Mean of the uncertainties of the retrievals in the grid cell,
+                without the sampling uncertainty.
+            AOD550_sdev:
+              standard_name: *od550aer_standard_name
+              cell_methods: *standard_deviation
+            pixel_count: *pixel_count_attributes
+            time: *time_attributes
+      - *remove_attributes
+      - id: esa_cci.set_global_attributes
+        options:
+          attributes: &daily_global_attributes
+            <<: *global_attributes
+            frequency: day
+            variable_id: od550aer
+            branded_variable: od550aer_tavg-u-hxy-u
+      - *set_time_units
+      - *set_data_types
+      - *normalize_longitude
+      - *select_od550aer
+      - *rename_od550aer
+
+  # The fine mode and absorption optical depths only have a standard
+  # deviation, no uncertainties.
+  - id: esa_cci.aerosol_od550lt1aer
+    description: >-
+      Prepare the fine mode aerosol optical depth at 550 nm (FM_AOD550_mean)
+      of ESA CCI monthly SU aerosol datasets, v4.3, as the CMIP7 variable
+      od550lt1aer
+    match:
+      path_patterns: *monthly_patterns
+    steps:
+      - id: esa_cci.remove_packing
+      - id: esa_cci.remove_range_attributes
+      - id: esa_cci.remove_xcube_cci_odp_attributes
+      - id: esa_cci.remove_invalid_coordinates
+      - *add_bounds
+      - *add_wavelength
+      - id: esa_cci.set_attributes
+        options:
+          attributes: &od550lt1aer_attributes
+            FM_AOD550_mean:
+              # The fine mode of the SU algorithm, as in the ESMValTool
+              # CMORizer, is not exactly the PM1 aerosol of CMIP7.
+              standard_name: &od550lt1aer_standard_name >-
+                atmosphere_optical_thickness_due_to_pm1_ambient_aerosol_particles
+              long_name: Ambient Fine Aerosol Optical Depth at 550nm
+              cell_methods: *mean
+              ancillary_variables: FM_AOD550_sdev pixel_count
+            FM_AOD550_sdev:
+              standard_name: *od550lt1aer_standard_name
+              cell_methods: *standard_deviation
+            pixel_count: *pixel_count_attributes
+            time: *time_attributes
+      - *remove_attributes
+      - id: esa_cci.set_global_attributes
+        options:
+          attributes:
+            <<: *global_attributes
+            variable_id: od550lt1aer
+            branded_variable: od550lt1aer_tavg-u-hxy-u
+      - *set_time_units
+      - *set_data_types
+      - *normalize_longitude
+      - &select_od550lt1aer
+        id: esa_cci.select_variables
+        options:
+          variables: [FM_AOD550_mean]
+      - &rename_od550lt1aer
+        id: woodpecker.rename_variables
+        options:
+          mapping:
+            od550lt1aer: [FM_AOD550_mean]
+
+  - id: esa_cci.aerosol_od550lt1aer_daily
+    description: >-
+      Prepare the fine mode aerosol optical depth at 550 nm (FM_AOD550_mean)
+      of ESA CCI daily SU aerosol datasets, v4.3, as the CMIP7 variable
+      od550lt1aer
+    match:
+      path_patterns: *daily_patterns
+    steps:
+      - id: esa_cci.remove_packing
+      - id: esa_cci.remove_range_attributes
+      - id: esa_cci.remove_xcube_cci_odp_attributes
+      - id: esa_cci.remove_invalid_coordinates
+      - *add_bounds
+      - *add_wavelength
+      - id: esa_cci.set_attributes
+        options:
+          attributes: *od550lt1aer_attributes
+      - *remove_attributes
+      - id: esa_cci.set_global_attributes
+        options:
+          attributes:
+            <<: *daily_global_attributes
+            variable_id: od550lt1aer
+            branded_variable: od550lt1aer_tavg-u-hxy-u
+      - *set_time_units
+      - *set_data_types
+      - *normalize_longitude
+      - *select_od550lt1aer
+      - *rename_od550lt1aer
+
+  - id: esa_cci.aerosol_abs550aer
+    description: >-
+      Prepare the absorption aerosol optical depth at 550 nm (AAOD550_mean)
+      of ESA CCI monthly SU aerosol datasets, v4.3, as the CMIP7 variable
+      abs550aer
+    match:
+      path_patterns: *monthly_patterns
+    steps:
+      - id: esa_cci.remove_packing
+      - id: esa_cci.remove_range_attributes
+      - id: esa_cci.remove_xcube_cci_odp_attributes
+      - id: esa_cci.remove_invalid_coordinates
+      - *add_bounds
+      - *add_wavelength
+      - id: esa_cci.set_attributes
+        options:
+          attributes: &abs550aer_attributes
+            AAOD550_mean:
+              standard_name: &abs550aer_standard_name >-
+                atmosphere_absorption_optical_thickness_due_to_ambient_aerosol_particles
+              long_name: Ambient Aerosol Absorption Optical Thickness at 550nm
+              cell_methods: *mean
+              ancillary_variables: AAOD550_sdev pixel_count
+            AAOD550_sdev:
+              standard_name: *abs550aer_standard_name
+              cell_methods: *standard_deviation
+            pixel_count: *pixel_count_attributes
+            time: *time_attributes
+      - *remove_attributes
+      - id: esa_cci.set_global_attributes
+        options:
+          attributes:
+            <<: *global_attributes
+            variable_id: abs550aer
+            branded_variable: abs550aer_tavg-u-hxy-u
+      - *set_time_units
+      - *set_data_types
+      - *normalize_longitude
+      - &select_abs550aer
+        id: esa_cci.select_variables
+        options:
+          variables: [AAOD550_mean]
+      - &rename_abs550aer
+        id: woodpecker.rename_variables
+        options:
+          mapping:
+            abs550aer: [AAOD550_mean]
+
+  - id: esa_cci.aerosol_abs550aer_daily
+    description: >-
+      Prepare the absorption aerosol optical depth at 550 nm (AAOD550_mean)
+      of ESA CCI daily SU aerosol datasets, v4.3, as the CMIP7 variable
+      abs550aer
+    match:
+      path_patterns: *daily_patterns
+    steps:
+      - id: esa_cci.remove_packing
+      - id: esa_cci.remove_range_attributes
+      - id: esa_cci.remove_xcube_cci_odp_attributes
+      - id: esa_cci.remove_invalid_coordinates
+      - *add_bounds
+      - *add_wavelength
+      - id: esa_cci.set_attributes
+        options:
+          attributes: *abs550aer_attributes
+      - *remove_attributes
+      - id: esa_cci.set_global_attributes
+        options:
+          attributes:
+            <<: *daily_global_attributes
+            variable_id: abs550aer
+            branded_variable: abs550aer_tavg-u-hxy-u
+      - *set_time_units
+      - *set_data_types
+      - *normalize_longitude
+      - *select_abs550aer
+      - *rename_abs550aer

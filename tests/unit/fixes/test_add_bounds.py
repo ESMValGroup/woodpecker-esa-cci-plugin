@@ -88,3 +88,16 @@ def test_existing_bounds_variable_raises(dataset: xr.Dataset) -> None:
 
     with pytest.raises(ValueError, match="lat: lat_bnds already exists"):
         woodpecker.check(dataset, fixes=FIX_ID, options=OPTIONS)
+
+
+def test_bounds_of_varying_step_are_halfway() -> None:
+    # Like the latitudes of an EASE-Grid 2.0.
+    dataset = xr.Dataset(coords={"lat": ("lat", [-1.0, 0.0, 2.0, 5.0])})
+    options = {FIX_ID: {"coordinates": ["lat"], "varying_step": ["lat"]}}
+
+    woodpecker.apply(dataset, fixes=FIX_ID, dry_run=False, options=options)
+    np.testing.assert_array_equal(
+        dataset["lat_bnds"],
+        [[-1.5, -0.5], [-0.5, 1.0], [1.0, 3.5], [3.5, 6.5]],
+    )
+    assert dataset["lat"].attrs["bounds"] == "lat_bnds"

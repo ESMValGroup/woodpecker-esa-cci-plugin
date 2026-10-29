@@ -8,7 +8,7 @@ import pytest
 import woodpecker
 from woodpecker.recipes.models import Recipe
 
-from .esa_cci_data import BUCKET, CASES, STORAGE_OPTIONS, Store
+from .esa_cci_data import BUCKET, CASES, STORAGE_OPTIONS, Case, Store
 
 s3fs = pytest.importorskip("s3fs")
 # The other stores can only be listed with xcube-cci.
@@ -34,6 +34,18 @@ def _matches(recipe: Recipe, data_id: str) -> bool:
     return any(fnmatch(data_id, pattern) for pattern in patterns)
 
 
+def _checks(case: Case, recipe: Recipe) -> bool:
+    """Return whether ``case`` checks ``recipe``.
+
+    Datasets that provide several variables match a recipe for each, and
+    their cases select one of them.
+    """
+    return _matches(recipe, case.data_id) and case.recipe_id in (
+        None,
+        recipe.id,
+    )
+
+
 @pytest.fixture(scope="module")
 def data_ids() -> dict[Store, list[str]]:
     """Return the data ids of each store that can be listed."""
@@ -50,7 +62,7 @@ def data_ids() -> dict[Store, list[str]]:
 
 @pytest.mark.parametrize("recipe", RECIPES, ids=[r.id for r in RECIPES])
 def test_recipe_has_cases(recipe: Recipe) -> None:
-    assert [case for case in CASES if _matches(recipe, case.data_id)]
+    assert [case for case in CASES if _checks(case, recipe)]
 
 
 @pytest.mark.parametrize("store", STORES)
@@ -73,6 +85,6 @@ def test_all_datasets_are_checked(
     checked = sorted(
         case.data_id
         for case in CASES
-        if case.store == store and _matches(recipe, case.data_id)
+        if case.store == store and _checks(case, recipe)
     )
     assert checked == expected

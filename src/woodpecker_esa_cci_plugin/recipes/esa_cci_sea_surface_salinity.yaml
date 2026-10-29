@@ -1,0 +1,139 @@
+# Monthly sea surface salinity (SSS) from the global merged optimal
+# interpolation products, all versions.
+recipes:
+  - id: esa_cci.sea_surface_salinity
+    description: >-
+      Prepare the ESA CCI global level 4 sea surface salinity (sss) 30-day
+      means, centred on the 15th of each month, as the CMIP7 variable sos
+    match:
+      # Not the POLAR products, which are on the polar EASE-Grid 2.0 (x/y).
+      path_patterns:
+        - "*ESACCI-SEASURFACESALINITY-L4-SSS-MERGED_OI_Monthly_CENTRED_15Day_25km-*"
+        - "*ESACCI-SEASURFACESALINITY-L4-SSS-GLOBAL-MERGED_OI_Monthly_CENTRED_15Day_0.25deg-*"
+        - "*esacci.SEASURFACESALINITY.15-days.L4.SSS.multi-sensor.multi-platform.MERGED_OI_Monthly_CENTRED_15Day_25km.*.r1"
+        - "*esacci.SEASURFACESALINITY.15-days.L4.SSS.multi-sensor.multi-platform.GLOBAL-MERGED_OI_Monthly_CENTRED_15Day_0-25deg.*.r1"
+    steps:
+      # Steps run in the order listed here. The variables are renamed last,
+      # so all steps use the original variable names. Woodpecker allows each
+      # fix only once per recipe.
+      # Packing and the range attributes become invalid when the values
+      # change, so remove them first. The time encoding is kept.
+      - id: esa_cci.remove_packing
+      - id: esa_cci.remove_range_attributes
+      # Attributes that the Open Data Portal store adds to describe the
+      # original files.
+      - id: esa_cci.remove_xcube_cci_odp_attributes
+      # The datasets have overlapping 30-day means every 15 days, on the 1st
+      # and the 15th of each month. Those on the 15th are close to monthly
+      # means, and do not overlap.
+      - id: esa_cci.select_time_steps
+        options:
+          coordinate: time
+          day_of_month: 15
+      # The time points are on the 15th, and there are no time bounds.
+      - id: esa_cci.center_time
+        options:
+          coordinate: time
+          frequency: mon
+      # Before normalizing the longitude, so the bounds are wrapped too.
+      # Versions 2.31 and 3.21 are on the global EASE-Grid 2.0 at 25 km,
+      # whose latitude step varies slowly, and later versions on a regular
+      # grid, where halfway between the values is the same.
+      - id: esa_cci.add_bounds
+        options:
+          coordinates: [lat, lon]
+          varying_step: [lat]
+      - id: esa_cci.set_attributes
+        options:
+          attributes:
+            sss:
+              long_name: Sea Surface Salinity
+              # On the practical salinity scale, which has no units. Some
+              # versions have no units, and others 0.001, which is the same.
+              units: "1E-03"
+              cell_methods: "area: mean where sea time: mean"
+              # Keeps the uncertainty and the number of observations when
+              # selecting variables.
+              ancillary_variables: sss_random_error total_nobs
+            # The estimated standard deviation of the random error of sss.
+            sss_random_error:
+              standard_name: sea_surface_salinity standard_error
+              units: "1E-03"
+            total_nobs:
+              standard_name: number_of_observations
+              units: "1"
+            time:
+              # xarray decodes the times to numpy datetime64 or cftime,
+              # which do not count leap seconds. Times that are not decoded
+              # are converted with them by esa_cci.set_time_units.
+              units_metadata: "leap_seconds: none"
+              # Required by CMIP7 for the coordinates.
+              axis: T
+            lat:
+              axis: "Y"
+            lon:
+              axis: X
+      - id: esa_cci.remove_attributes
+        options:
+          attributes:
+            # A misspelled ancillary_variables attribute, which refers to
+            # variables that are not kept.
+            sss: [ancilliary]
+            sss_random_error: [ancilliary, ancillary_variables]
+            # Bounds variables inherit the standard_name and long_name of
+            # their coordinate, and CF recommends leaving them out. The Open
+            # Data Portal store sets the invalid standard_name time_bnds.
+            lat_bnds: &bounds [standard_name, long_name, comment]
+            lon_bnds: *bounds
+            time_bnds: *bounds
+      - id: esa_cci.set_global_attributes
+        options:
+          attributes:
+            Conventions: CF-1.11
+            # The CMIP7 variable, after renaming.
+            variable_id: sos
+            branded_variable: sos_tavg-u-hxy-sea
+            frequency: mon
+            realm: ocean
+      - id: esa_cci.remove_global_attributes
+        options:
+          # Empty, or pointing to the original files, which the Kerchunk
+          # store combines. The history describes the Kerchunk file, and CF
+          # requires it.
+          attributes:
+            [
+              date_created,
+              date_modified,
+              id,
+              keywords_vocabulary,
+              tracking_id,
+            ]
+      - id: esa_cci.set_time_units
+        options:
+          coordinate: time
+          units: days since 1850-01-01
+          # xarray decodes the times to numpy datetime64, which uses the
+          # proleptic Gregorian calendar.
+          calendar: proleptic_gregorian
+      # CMIP7 stores data in single precision, and coordinates in double
+      # precision. Some versions store the counts as integers.
+      - id: esa_cci.set_data_types
+        options:
+          data_types:
+            sss: float32
+            sss_random_error: float32
+            total_nobs: float32
+            lat: float64
+            lon: float64
+            lat_bnds: float64
+            lon_bnds: float64
+      - id: esa_cci.normalize_longitude
+        options:
+          coordinate: lon
+      - id: esa_cci.select_variables
+        options:
+          variables: [sss]
+      - id: woodpecker.rename_variables
+        options:
+          mapping:
+            sos: [sss]

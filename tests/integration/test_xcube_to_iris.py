@@ -4,7 +4,7 @@ import pytest
 import woodpecker
 from woodpecker.io.backends.xr import XarrayInput
 
-from .esa_cci_data import CASES, CHUNKS, TIME_STEPS, Case
+from .esa_cci_data import CASES, CHUNKS, Case
 
 xcube_store = pytest.importorskip("xcube.core.store")
 iris = pytest.importorskip("iris")
@@ -18,9 +18,7 @@ iris_conversion = pytest.importorskip("tests.integration.iris_conversion")
 XCUBE_CASES = [case for case in CASES if case.store != "cciodp"]
 
 
-@pytest.mark.parametrize(
-    "case", XCUBE_CASES, ids=[c.data_id for c in XCUBE_CASES]
-)
+@pytest.mark.parametrize("case", XCUBE_CASES, ids=[c.id for c in XCUBE_CASES])
 def test_loads_with_iris_without_warnings(
     case: Case,
     full_time_axis: bool,  # noqa: FBT001
@@ -28,13 +26,14 @@ def test_loads_with_iris_without_warnings(
     store = xcube_store.new_data_store(case.store)
     dataset = store.open_data(case.data_id)
     if case.store == "ccikc" and not full_time_axis:
-        dataset = dataset.isel(time=slice(TIME_STEPS))
+        dataset = dataset.isel(time=slice(case.opened_time_steps))
     dataset = dataset.chunk(CHUNKS)
     # Woodpecker selects the recipe by matching its path_patterns against
-    # the data id.
+    # the data id, or by the recipe id of datasets with several recipes.
     woodpecker.recipe.apply(
         XarrayInput(payload=dataset, name=case.data_id),
         woodpecker.recipe.catalog(),
+        recipe_id=case.recipe_id,
         dry_run=False,
     )
 
@@ -45,11 +44,10 @@ def test_loads_with_iris_without_warnings(
     assert len(cubes) == 1
     cube = cubes[0]
     assert cube.var_name == case.variable_id
-    # Iris splits "area: mean where sea time: mean" in two cell methods.
-    assert " ".join(str(m) for m in cube.cell_methods) in (
-        "area: time: mean",
-        "area: mean where sea time: mean",
-    )
+    # Iris splits e.g. "area: mean where sea time: mean" in two cell
+    # methods.
+    cell_methods = " ".join(str(m) for m in cube.cell_methods)
+    assert cell_methods == dataset[case.variable_id].attrs["cell_methods"]
     if case.variable_id == "prw":
         coord_system = cube.coord_system()
         assert isinstance(coord_system, iris.coord_systems.GeogCS)

@@ -1,0 +1,856 @@
+# Cloud properties and radiative fluxes from the monthly level 3 AVHRR
+# products, v3.0, of the morning (AM) and afternoon (PM) satellites. Each
+# recipe provides one CMIP7 variable, and they all match the same datasets,
+# so select one with its recipe id. Steps with options that are the same in
+# all recipes are defined in the first recipe, and reused in the others with
+# YAML aliases (*name).
+recipes:
+  - id: esa_cci.cloud_clt
+    description: >-
+      Prepare the total cloud fraction (cfc) of ESA CCI monthly AVHRR cloud
+      datasets, v3.0, as the CMIP7 variable clt
+    match:
+      path_patterns: &avhrr_patterns
+        - "*ESACCI-L3C_CLOUD-CLD_PRODUCTS-AVHRR_?M-*-fv3.0-kr*"
+        - "*esacci.CLOUD.mon.L3C.CLD_PRODUCTS.multi-sensor.multi-platform.AVHRR-?M.3-0.r1"
+    steps:
+      # Steps run in the order listed here. The variables are renamed last,
+      # so all steps use the original variable names. Woodpecker allows each
+      # fix only once per recipe.
+      # Packing and the range attributes become invalid when the values
+      # change, so remove them first. The time encoding is kept.
+      - id: esa_cci.remove_packing
+      - id: esa_cci.remove_range_attributes
+      # Attributes that the Open Data Portal store adds to describe the
+      # original files.
+      - id: esa_cci.remove_xcube_cci_odp_attributes
+      # The Kerchunk and zarr stores have the time points at the start of
+      # each month and no time bounds, so add them before the steps that
+      # change the bounds.
+      - &center_time
+        id: esa_cci.center_time
+        options:
+          coordinate: time
+          frequency: mon
+      # The Kerchunk and zarr stores leave out the months without data of
+      # AVHRR-PM, September 1994 to January 1995, which the Open Data Portal
+      # store has with missing values.
+      - &fill_time_gaps
+        id: esa_cci.fill_time_gaps
+        options:
+          coordinate: time
+          frequency: mon
+      # There are no latitude and longitude bounds. Before normalizing the
+      # longitude, so the bounds are wrapped too.
+      - &add_bounds
+        id: esa_cci.add_bounds
+        options:
+          coordinates: [lat, lon]
+      - id: esa_cci.set_attributes
+        options:
+          attributes:
+            cfc: &cfc_attributes
+              long_name: Total Cloud Cover Percentage
+              cell_methods: "area: time: mean"
+              # Keeps the uncertainties, the standard deviation and the
+              # number of observations when selecting variables. The
+              # correlated uncertainty cfc_corr_unc is left out: it is zero
+              # everywhere.
+              ancillary_variables: cfc_unc cfc_prop_unc cfc_std nobs
+            # The Product User Guide (D3.3, v5.1) describes how the monthly
+            # values are computed from the pixels: Level-3C means and
+            # uncertainties in its Annex C.
+            cfc_unc: &cfc_unc_attributes
+              standard_name: cloud_area_fraction standard_error
+              comment: >-
+                Mean of the uncertainties of the pixels in the grid cell:
+                the uncertainty of the cloud fraction if their errors are
+                fully correlated.
+            # Smaller than cfc_unc, by about the square root of the number
+            # of observations, so not the uncertainty if the errors are
+            # correlated. The Product User Guide does not say how it is
+            # normalized, so it has no CF standard name.
+            cfc_prop_unc:
+              comment: >-
+                The uncertainties of the pixels in the grid cell added in
+                quadrature.
+            cfc_std: &cfc_std_attributes
+              # The standard deviation of the cloud mask of the pixels.
+              standard_name: cloud_area_fraction
+              cell_methods: "area: time: standard_deviation"
+            nobs: &nobs_attributes
+              standard_name: number_of_observations
+            time: &time_attributes
+              # xarray decodes the times to numpy datetime64 or cftime,
+              # which do not count leap seconds. Times that are not decoded
+              # are converted with them by esa_cci.set_time_units.
+              units_metadata: "leap_seconds: none"
+              # Required by CMIP7 for the coordinates.
+              axis: T
+            lat: &lat_attributes
+              axis: "Y"
+            lon: &lon_attributes
+              axis: X
+      - &remove_attributes
+        id: esa_cci.remove_attributes
+        options:
+          attributes:
+            # Bounds variables inherit the standard_name and long_name of
+            # their coordinate, and CF recommends leaving them out. The Open
+            # Data Portal store sets the invalid standard_name time_bnds.
+            lat_bnds: &bounds [standard_name, long_name, comment]
+            lon_bnds: *bounds
+            time_bnds: *bounds
+      - id: esa_cci.set_global_attributes
+        options:
+          attributes:
+            <<: &global_attributes
+              Conventions: CF-1.11
+              frequency: mon
+              realm: atmos
+            # The CMIP7 variable, after renaming.
+            variable_id: clt
+            branded_variable: clt_tavg-u-hxy-u
+      - &set_time_units
+        id: esa_cci.set_time_units
+        options:
+          coordinate: time
+          units: days since 1850-01-01
+          # xarray decodes the times to numpy datetime64, which uses the
+          # proleptic Gregorian calendar.
+          calendar: proleptic_gregorian
+      - &convert_cfc_units
+        id: esa_cci.convert_units
+        options:
+          units:
+            cfc: "%"
+            cfc_std: "%"
+      # CMIP7 stores data in single precision, and coordinates in double
+      # precision.
+      - id: esa_cci.set_data_types
+        options:
+          data_types: &cfc_data_types
+            <<: &coordinate_data_types
+              lat: float64
+              lon: float64
+              lat_bnds: float64
+              lon_bnds: float64
+            cfc: float32
+      - &normalize_longitude
+        id: esa_cci.normalize_longitude
+        options:
+          coordinate: lon
+      - &select_cfc
+        id: esa_cci.select_variables
+        options:
+          variables: [cfc]
+      - &rename_cfc
+        id: woodpecker.rename_variables
+        options:
+          mapping:
+            clt: [cfc]
+
+  # The zarr store only has the cloud fraction variables, without
+  # cfc_prop_unc.
+  - id: esa_cci.cloud_clt_zarr
+    description: >-
+      Prepare the total cloud fraction (cfc) of the ESA CCI monthly AVHRR
+      cloud dataset, v3.0, in the zarr store as the CMIP7 variable clt
+    match:
+      path_patterns:
+        - "*ESACCI-L3C_CLOUD-CLD_PRODUCTS-AVHRR_NOAA-1982-2016-fv3.0.zarr"
+    steps:
+      - id: esa_cci.remove_packing
+      - id: esa_cci.remove_range_attributes
+      - id: esa_cci.remove_xcube_cci_odp_attributes
+      - *center_time
+      - *fill_time_gaps
+      - *add_bounds
+      - id: esa_cci.set_attributes
+        options:
+          attributes:
+            cfc:
+              <<: *cfc_attributes
+              ancillary_variables: cfc_unc cfc_std nobs
+            cfc_unc: *cfc_unc_attributes
+            cfc_std: *cfc_std_attributes
+            nobs: *nobs_attributes
+            time: *time_attributes
+            lat: *lat_attributes
+            lon: *lon_attributes
+      - *remove_attributes
+      - id: esa_cci.set_global_attributes
+        options:
+          attributes:
+            <<: *global_attributes
+            variable_id: clt
+            branded_variable: clt_tavg-u-hxy-u
+      - *set_time_units
+      - *convert_cfc_units
+      - id: esa_cci.set_data_types
+        options:
+          data_types: *cfc_data_types
+      - *normalize_longitude
+      - *select_cfc
+      - *rename_cfc
+
+  # The uncertainties of the water paths, such as lwp_unc, are those of the
+  # in-cloud values lwp and iwp, not of the all-sky grid box means, and the
+  # fluxes have no uncertainties, so the other recipes keep no ancillary
+  # variables.
+  - id: esa_cci.cloud_lwp
+    description: >-
+      Prepare the all-sky cloud liquid water path (lwp_allsky) of ESA
+      CCI monthly AVHRR cloud datasets, v3.0, as the CMIP7 variable lwp
+    match:
+      path_patterns: *avhrr_patterns
+    steps:
+      - id: esa_cci.remove_packing
+      - id: esa_cci.remove_range_attributes
+      - id: esa_cci.remove_xcube_cci_odp_attributes
+      - *center_time
+      - *fill_time_gaps
+      - *add_bounds
+      - id: esa_cci.set_attributes
+        options:
+          attributes:
+            lwp_allsky:
+              <<: &mean_attributes
+                cell_methods: "area: time: mean"
+              long_name: Liquid Water Path
+            time: *time_attributes
+            lat: *lat_attributes
+            lon: *lon_attributes
+      - *remove_attributes
+      - id: esa_cci.set_global_attributes
+        options:
+          attributes:
+            <<: *global_attributes
+            realm: aerosol
+            variable_id: lwp
+            branded_variable: lwp_tavg-u-hxy-u
+      - *set_time_units
+      - id: esa_cci.convert_units
+        options:
+          units:
+            lwp_allsky: kg m-2
+      - id: esa_cci.set_data_types
+        options:
+          data_types:
+            <<: *coordinate_data_types
+            lwp_allsky: float32
+      - *normalize_longitude
+      - id: esa_cci.select_variables
+        options:
+          variables: [lwp_allsky]
+      - id: woodpecker.rename_variables
+        options:
+          mapping:
+            lwp: [lwp_allsky]
+
+  - id: esa_cci.cloud_clivi
+    description: >-
+      Prepare the all-sky cloud ice water path (iwp_allsky) of ESA CCI
+      monthly AVHRR cloud datasets, v3.0, as the CMIP7 variable clivi
+    match:
+      path_patterns: *avhrr_patterns
+    steps:
+      - id: esa_cci.remove_packing
+      - id: esa_cci.remove_range_attributes
+      - id: esa_cci.remove_xcube_cci_odp_attributes
+      - *center_time
+      - *fill_time_gaps
+      - *add_bounds
+      - id: esa_cci.set_attributes
+        options:
+          attributes:
+            iwp_allsky:
+              <<: *mean_attributes
+              long_name: Ice Water Path
+            time: *time_attributes
+            lat: *lat_attributes
+            lon: *lon_attributes
+      - *remove_attributes
+      - id: esa_cci.set_global_attributes
+        options:
+          attributes:
+            <<: *global_attributes
+            variable_id: clivi
+            branded_variable: clivi_tavg-u-hxy-u
+      - *set_time_units
+      - id: esa_cci.convert_units
+        options:
+          units:
+            iwp_allsky: kg m-2
+      - id: esa_cci.set_data_types
+        options:
+          data_types:
+            <<: *coordinate_data_types
+            iwp_allsky: float32
+      - *normalize_longitude
+      - id: esa_cci.select_variables
+        options:
+          variables: [iwp_allsky]
+      - id: woodpecker.rename_variables
+        options:
+          mapping:
+            clivi: [iwp_allsky]
+
+  - id: esa_cci.cloud_rlut
+    description: >-
+      Prepare the outgoing longwave flux at the top of the atmosphere
+      (toa_lwup) of ESA CCI monthly AVHRR cloud datasets, v3.0, as the
+      CMIP7 variable rlut
+    match:
+      path_patterns: *avhrr_patterns
+    steps:
+      - id: esa_cci.remove_packing
+      - id: esa_cci.remove_range_attributes
+      - id: esa_cci.remove_xcube_cci_odp_attributes
+      - *center_time
+      - *fill_time_gaps
+      - *add_bounds
+      - id: esa_cci.set_attributes
+        options:
+          attributes:
+            toa_lwup:
+              <<: *mean_attributes
+              long_name: TOA Outgoing Longwave Radiation
+              positive: up
+            time: *time_attributes
+            lat: *lat_attributes
+            lon: *lon_attributes
+      - *remove_attributes
+      - id: esa_cci.set_global_attributes
+        options:
+          attributes:
+            <<: *global_attributes
+            variable_id: rlut
+            branded_variable: rlut_tavg-u-hxy-u
+      - *set_time_units
+      - id: esa_cci.set_data_types
+        options:
+          data_types:
+            <<: *coordinate_data_types
+            toa_lwup: float32
+      - *normalize_longitude
+      - id: esa_cci.select_variables
+        options:
+          variables: [toa_lwup]
+      - id: woodpecker.rename_variables
+        options:
+          mapping:
+            rlut: [toa_lwup]
+
+  - id: esa_cci.cloud_rlutcs
+    description: >-
+      Prepare the clear-sky outgoing longwave flux at the top of the
+      atmosphere (toa_lwup_clr) of ESA CCI monthly AVHRR cloud datasets,
+      v3.0, as the CMIP7 variable rlutcs
+    match:
+      path_patterns: *avhrr_patterns
+    steps:
+      - id: esa_cci.remove_packing
+      - id: esa_cci.remove_range_attributes
+      - id: esa_cci.remove_xcube_cci_odp_attributes
+      - *center_time
+      - *fill_time_gaps
+      - *add_bounds
+      - id: esa_cci.set_attributes
+        options:
+          attributes:
+            toa_lwup_clr:
+              <<: *mean_attributes
+              long_name: TOA Outgoing Clear-Sky Longwave Radiation
+              positive: up
+            time: *time_attributes
+            lat: *lat_attributes
+            lon: *lon_attributes
+      - *remove_attributes
+      - id: esa_cci.set_global_attributes
+        options:
+          attributes:
+            <<: *global_attributes
+            variable_id: rlutcs
+            branded_variable: rlutcs_tavg-u-hxy-u
+      - *set_time_units
+      - id: esa_cci.set_data_types
+        options:
+          data_types:
+            <<: *coordinate_data_types
+            toa_lwup_clr: float32
+      - *normalize_longitude
+      - id: esa_cci.select_variables
+        options:
+          variables: [toa_lwup_clr]
+      - id: woodpecker.rename_variables
+        options:
+          mapping:
+            rlutcs: [toa_lwup_clr]
+
+  - id: esa_cci.cloud_rsut
+    description: >-
+      Prepare the outgoing shortwave flux at the top of the atmosphere
+      (toa_swup) of ESA CCI monthly AVHRR cloud datasets, v3.0, as the
+      CMIP7 variable rsut
+    match:
+      path_patterns: *avhrr_patterns
+    steps:
+      - id: esa_cci.remove_packing
+      - id: esa_cci.remove_range_attributes
+      - id: esa_cci.remove_xcube_cci_odp_attributes
+      - *center_time
+      - *fill_time_gaps
+      - *add_bounds
+      - id: esa_cci.set_attributes
+        options:
+          attributes:
+            toa_swup:
+              <<: *mean_attributes
+              long_name: TOA Outgoing Shortwave Radiation
+              positive: up
+            time: *time_attributes
+            lat: *lat_attributes
+            lon: *lon_attributes
+      - *remove_attributes
+      - id: esa_cci.set_global_attributes
+        options:
+          attributes:
+            <<: *global_attributes
+            variable_id: rsut
+            branded_variable: rsut_tavg-u-hxy-u
+      - *set_time_units
+      - id: esa_cci.set_data_types
+        options:
+          data_types:
+            <<: *coordinate_data_types
+            toa_swup: float32
+      - *normalize_longitude
+      - id: esa_cci.select_variables
+        options:
+          variables: [toa_swup]
+      - id: woodpecker.rename_variables
+        options:
+          mapping:
+            rsut: [toa_swup]
+
+  - id: esa_cci.cloud_rsutcs
+    description: >-
+      Prepare the clear-sky outgoing shortwave flux at the top of the
+      atmosphere (toa_swup_clr) of ESA CCI monthly AVHRR cloud datasets,
+      v3.0, as the CMIP7 variable rsutcs
+    match:
+      path_patterns: *avhrr_patterns
+    steps:
+      - id: esa_cci.remove_packing
+      - id: esa_cci.remove_range_attributes
+      - id: esa_cci.remove_xcube_cci_odp_attributes
+      - *center_time
+      - *fill_time_gaps
+      - *add_bounds
+      - id: esa_cci.set_attributes
+        options:
+          attributes:
+            toa_swup_clr:
+              <<: *mean_attributes
+              long_name: TOA Outgoing Clear-Sky Shortwave Radiation
+              positive: up
+            time: *time_attributes
+            lat: *lat_attributes
+            lon: *lon_attributes
+      - *remove_attributes
+      - id: esa_cci.set_global_attributes
+        options:
+          attributes:
+            <<: *global_attributes
+            variable_id: rsutcs
+            branded_variable: rsutcs_tavg-u-hxy-u
+      - *set_time_units
+      - id: esa_cci.set_data_types
+        options:
+          data_types:
+            <<: *coordinate_data_types
+            toa_swup_clr: float32
+      - *normalize_longitude
+      - id: esa_cci.select_variables
+        options:
+          variables: [toa_swup_clr]
+      - id: woodpecker.rename_variables
+        options:
+          mapping:
+            rsutcs: [toa_swup_clr]
+
+  - id: esa_cci.cloud_rsdt
+    description: >-
+      Prepare the incoming shortwave flux at the top of the atmosphere
+      (toa_swdn) of ESA CCI monthly AVHRR cloud datasets, v3.0, as the
+      CMIP7 variable rsdt
+    match:
+      path_patterns: *avhrr_patterns
+    steps:
+      - id: esa_cci.remove_packing
+      - id: esa_cci.remove_range_attributes
+      - id: esa_cci.remove_xcube_cci_odp_attributes
+      - *center_time
+      - *fill_time_gaps
+      - *add_bounds
+      - id: esa_cci.set_attributes
+        options:
+          attributes:
+            toa_swdn:
+              <<: *mean_attributes
+              # The original toa_downwelling_shortwave_flux is not a CF
+              # standard name.
+              standard_name: toa_incoming_shortwave_flux
+              long_name: TOA Incident Shortwave Radiation
+              positive: down
+            time: *time_attributes
+            lat: *lat_attributes
+            lon: *lon_attributes
+      - *remove_attributes
+      - id: esa_cci.set_global_attributes
+        options:
+          attributes:
+            <<: *global_attributes
+            variable_id: rsdt
+            branded_variable: rsdt_tavg-u-hxy-u
+      - *set_time_units
+      - id: esa_cci.set_data_types
+        options:
+          data_types:
+            <<: *coordinate_data_types
+            toa_swdn: float32
+      - *normalize_longitude
+      - id: esa_cci.select_variables
+        options:
+          variables: [toa_swdn]
+      - id: woodpecker.rename_variables
+        options:
+          mapping:
+            rsdt: [toa_swdn]
+
+  - id: esa_cci.cloud_rlus
+    description: >-
+      Prepare the upwelling longwave flux at the surface (boa_lwup) of
+      ESA CCI monthly AVHRR cloud datasets, v3.0, as the CMIP7 variable
+      rlus
+    match:
+      path_patterns: *avhrr_patterns
+    steps:
+      - id: esa_cci.remove_packing
+      - id: esa_cci.remove_range_attributes
+      - id: esa_cci.remove_xcube_cci_odp_attributes
+      - *center_time
+      - *fill_time_gaps
+      - *add_bounds
+      - id: esa_cci.set_attributes
+        options:
+          attributes:
+            boa_lwup:
+              <<: *mean_attributes
+              long_name: Surface Upwelling Longwave Radiation
+              positive: up
+            time: *time_attributes
+            lat: *lat_attributes
+            lon: *lon_attributes
+      - *remove_attributes
+      - id: esa_cci.set_global_attributes
+        options:
+          attributes:
+            <<: *global_attributes
+            variable_id: rlus
+            branded_variable: rlus_tavg-u-hxy-u
+      - *set_time_units
+      - id: esa_cci.set_data_types
+        options:
+          data_types:
+            <<: *coordinate_data_types
+            boa_lwup: float32
+      - *normalize_longitude
+      - id: esa_cci.select_variables
+        options:
+          variables: [boa_lwup]
+      - id: woodpecker.rename_variables
+        options:
+          mapping:
+            rlus: [boa_lwup]
+
+  - id: esa_cci.cloud_rsus
+    description: >-
+      Prepare the upwelling shortwave flux at the surface (boa_swup) of
+      ESA CCI monthly AVHRR cloud datasets, v3.0, as the CMIP7 variable
+      rsus
+    match:
+      path_patterns: *avhrr_patterns
+    steps:
+      - id: esa_cci.remove_packing
+      - id: esa_cci.remove_range_attributes
+      - id: esa_cci.remove_xcube_cci_odp_attributes
+      - *center_time
+      - *fill_time_gaps
+      - *add_bounds
+      - id: esa_cci.set_attributes
+        options:
+          attributes:
+            boa_swup:
+              <<: *mean_attributes
+              long_name: Surface Upwelling Shortwave Radiation
+              positive: up
+            time: *time_attributes
+            lat: *lat_attributes
+            lon: *lon_attributes
+      - *remove_attributes
+      - id: esa_cci.set_global_attributes
+        options:
+          attributes:
+            <<: *global_attributes
+            variable_id: rsus
+            branded_variable: rsus_tavg-u-hxy-u
+      - *set_time_units
+      - id: esa_cci.set_data_types
+        options:
+          data_types:
+            <<: *coordinate_data_types
+            boa_swup: float32
+      - *normalize_longitude
+      - id: esa_cci.select_variables
+        options:
+          variables: [boa_swup]
+      - id: woodpecker.rename_variables
+        options:
+          mapping:
+            rsus: [boa_swup]
+
+  - id: esa_cci.cloud_rsuscs
+    description: >-
+      Prepare the clear-sky upwelling shortwave flux at the surface
+      (boa_swup_clr) of ESA CCI monthly AVHRR cloud datasets, v3.0, as
+      the CMIP7 variable rsuscs
+    match:
+      path_patterns: *avhrr_patterns
+    steps:
+      - id: esa_cci.remove_packing
+      - id: esa_cci.remove_range_attributes
+      - id: esa_cci.remove_xcube_cci_odp_attributes
+      - *center_time
+      - *fill_time_gaps
+      - *add_bounds
+      - id: esa_cci.set_attributes
+        options:
+          attributes:
+            boa_swup_clr:
+              <<: *mean_attributes
+              long_name: Surface Upwelling Clear-Sky Shortwave Radiation
+              positive: up
+            time: *time_attributes
+            lat: *lat_attributes
+            lon: *lon_attributes
+      - *remove_attributes
+      - id: esa_cci.set_global_attributes
+        options:
+          attributes:
+            <<: *global_attributes
+            variable_id: rsuscs
+            branded_variable: rsuscs_tavg-u-hxy-u
+      - *set_time_units
+      - id: esa_cci.set_data_types
+        options:
+          data_types:
+            <<: *coordinate_data_types
+            boa_swup_clr: float32
+      - *normalize_longitude
+      - id: esa_cci.select_variables
+        options:
+          variables: [boa_swup_clr]
+      - id: woodpecker.rename_variables
+        options:
+          mapping:
+            rsuscs: [boa_swup_clr]
+
+  - id: esa_cci.cloud_rlds
+    description: >-
+      Prepare the downwelling longwave flux at the surface (boa_lwdn) of
+      ESA CCI monthly AVHRR cloud datasets, v3.0, as the CMIP7 variable
+      rlds
+    match:
+      path_patterns: *avhrr_patterns
+    steps:
+      - id: esa_cci.remove_packing
+      - id: esa_cci.remove_range_attributes
+      - id: esa_cci.remove_xcube_cci_odp_attributes
+      - *center_time
+      - *fill_time_gaps
+      - *add_bounds
+      - id: esa_cci.set_attributes
+        options:
+          attributes:
+            boa_lwdn:
+              <<: *mean_attributes
+              long_name: Surface Downwelling Longwave Radiation
+              positive: down
+            time: *time_attributes
+            lat: *lat_attributes
+            lon: *lon_attributes
+      - *remove_attributes
+      - id: esa_cci.set_global_attributes
+        options:
+          attributes:
+            <<: *global_attributes
+            variable_id: rlds
+            branded_variable: rlds_tavg-u-hxy-u
+      - *set_time_units
+      - id: esa_cci.set_data_types
+        options:
+          data_types:
+            <<: *coordinate_data_types
+            boa_lwdn: float32
+      - *normalize_longitude
+      - id: esa_cci.select_variables
+        options:
+          variables: [boa_lwdn]
+      - id: woodpecker.rename_variables
+        options:
+          mapping:
+            rlds: [boa_lwdn]
+
+  - id: esa_cci.cloud_rldscs
+    description: >-
+      Prepare the clear-sky downwelling longwave flux at the surface
+      (boa_lwdn_clr) of ESA CCI monthly AVHRR cloud datasets, v3.0, as
+      the CMIP7 variable rldscs
+    match:
+      path_patterns: *avhrr_patterns
+    steps:
+      - id: esa_cci.remove_packing
+      - id: esa_cci.remove_range_attributes
+      - id: esa_cci.remove_xcube_cci_odp_attributes
+      - *center_time
+      - *fill_time_gaps
+      - *add_bounds
+      - id: esa_cci.set_attributes
+        options:
+          attributes:
+            boa_lwdn_clr:
+              <<: *mean_attributes
+              # The original has the words in another order, which is not a
+              # CF standard name.
+              standard_name: >-
+                surface_downwelling_longwave_flux_in_air_assuming_clear_sky
+              long_name: Surface Downwelling Clear-Sky Longwave Radiation
+              positive: down
+            time: *time_attributes
+            lat: *lat_attributes
+            lon: *lon_attributes
+      - *remove_attributes
+      - id: esa_cci.set_global_attributes
+        options:
+          attributes:
+            <<: *global_attributes
+            variable_id: rldscs
+            branded_variable: rldscs_tavg-u-hxy-u
+      - *set_time_units
+      - id: esa_cci.set_data_types
+        options:
+          data_types:
+            <<: *coordinate_data_types
+            boa_lwdn_clr: float32
+      - *normalize_longitude
+      - id: esa_cci.select_variables
+        options:
+          variables: [boa_lwdn_clr]
+      - id: woodpecker.rename_variables
+        options:
+          mapping:
+            rldscs: [boa_lwdn_clr]
+
+  - id: esa_cci.cloud_rsds
+    description: >-
+      Prepare the downwelling shortwave flux at the surface (boa_swdn)
+      of ESA CCI monthly AVHRR cloud datasets, v3.0, as the CMIP7
+      variable rsds
+    match:
+      path_patterns: *avhrr_patterns
+    steps:
+      - id: esa_cci.remove_packing
+      - id: esa_cci.remove_range_attributes
+      - id: esa_cci.remove_xcube_cci_odp_attributes
+      - *center_time
+      - *fill_time_gaps
+      - *add_bounds
+      - id: esa_cci.set_attributes
+        options:
+          attributes:
+            boa_swdn:
+              <<: *mean_attributes
+              long_name: Surface Downwelling Shortwave Radiation
+              positive: down
+            time: *time_attributes
+            lat: *lat_attributes
+            lon: *lon_attributes
+      - *remove_attributes
+      - id: esa_cci.set_global_attributes
+        options:
+          attributes:
+            <<: *global_attributes
+            variable_id: rsds
+            branded_variable: rsds_tavg-u-hxy-u
+      - *set_time_units
+      - id: esa_cci.set_data_types
+        options:
+          data_types:
+            <<: *coordinate_data_types
+            boa_swdn: float32
+      - *normalize_longitude
+      - id: esa_cci.select_variables
+        options:
+          variables: [boa_swdn]
+      - id: woodpecker.rename_variables
+        options:
+          mapping:
+            rsds: [boa_swdn]
+
+  - id: esa_cci.cloud_rsdscs
+    description: >-
+      Prepare the clear-sky downwelling shortwave flux at the surface
+      (boa_swdn_clr) of ESA CCI monthly AVHRR cloud datasets, v3.0, as
+      the CMIP7 variable rsdscs
+    match:
+      path_patterns: *avhrr_patterns
+    steps:
+      - id: esa_cci.remove_packing
+      - id: esa_cci.remove_range_attributes
+      - id: esa_cci.remove_xcube_cci_odp_attributes
+      - *center_time
+      - *fill_time_gaps
+      - *add_bounds
+      - id: esa_cci.set_attributes
+        options:
+          attributes:
+            boa_swdn_clr:
+              <<: *mean_attributes
+              long_name: Surface Downwelling Clear-Sky Shortwave Radiation
+              positive: down
+            time: *time_attributes
+            lat: *lat_attributes
+            lon: *lon_attributes
+      - *remove_attributes
+      - id: esa_cci.set_global_attributes
+        options:
+          attributes:
+            <<: *global_attributes
+            variable_id: rsdscs
+            branded_variable: rsdscs_tavg-u-hxy-u
+      - *set_time_units
+      - id: esa_cci.set_data_types
+        options:
+          data_types:
+            <<: *coordinate_data_types
+            boa_swdn_clr: float32
+      - *normalize_longitude
+      - id: esa_cci.select_variables
+        options:
+          variables: [boa_swdn_clr]
+      - id: woodpecker.rename_variables
+        options:
+          mapping:
+            rsdscs: [boa_swdn_clr]

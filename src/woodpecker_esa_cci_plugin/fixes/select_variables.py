@@ -79,8 +79,10 @@ class SelectVariables(ConfigurableFix[SelectVariablesOptions]):
 
     The variables are configured with the ``variables`` option, a list of
     variable names. Variables they refer to through CF attributes, such as
-    ancillary variables and coordinate bounds, are kept as well. Variables
-    that do not exist raise an error.
+    ancillary variables and coordinate bounds, are kept as well, and so are
+    their coordinates. Other coordinates, such as those of histogram bins
+    that only other variables use, are dropped. Variables that do not exist
+    raise an error.
     """
 
     suffix = "select_variables"
@@ -88,7 +90,8 @@ class SelectVariables(ConfigurableFix[SelectVariablesOptions]):
     description = (
         "Drops all data variables except the ones configured with the "
         "variables option and the variables they refer to through CF "
-        "attributes, such as ancillary variables and coordinate bounds."
+        "attributes, such as ancillary variables and coordinate bounds, and "
+        "the coordinates that none of these variables use."
     )
     categories = ["structure"]  # noqa: RUF012
     # Run after fixes that add references to variables, such as
@@ -106,7 +109,7 @@ class SelectVariables(ConfigurableFix[SelectVariablesOptions]):
             msg = f"Unable to select {', '.join(missing)}: not in the dataset"
             raise ValueError(msg)
         required = _required_names(dataset, variables)
-        return [name for name in dataset.data_vars if name not in required]
+        return [name for name in dataset.variables if name not in required]
 
     def matches(self, dataset: xr.Dataset) -> bool:
         """Return whether the fix applies to ``dataset``."""
