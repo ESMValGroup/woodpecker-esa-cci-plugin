@@ -13,6 +13,16 @@ netcdf4 = pytest.importorskip("netCDF4")
 suite = pytest.importorskip("compliance_checker.suite")
 
 
+# Messages of the CF checker that are not CF violations. CF allows a
+# standard name in the cell_methods, for a method over a coordinate that the
+# variable does not have, such as "longitude: mean" for zonal means, while
+# the checker requires a dimension or coordinate of the variable.
+FALSE_POSITIVES = (
+    (
+        "cell_methods name component longitude does not match a dimension, "
+        "area or auxiliary coordinate"
+    ),
+)
 # The regions of the subsets of the polar grids, with land and sea, as
 # latitude and longitude ranges: Svalbard and the coast of Dronning Maud
 # Land in Antarctica.
@@ -53,11 +63,15 @@ def write_subset(dataset: xr.Dataset, path: Path) -> None:
 
     The compliance checker only reads netCDF files, so this writes the first
     time steps around the Dutch coast, or a polar coast for polar grids, to
-    cover both land and sea.
+    cover both land and sea, or the latitudes of the Netherlands for zonal
+    means.
     """
     subset = dataset.isel(time=slice(TIME_STEPS))
     if subset["lat"].ndim == 2:
         subset = _polar_subset(subset)
+    elif "lon" not in subset.dims:
+        # Zonal means, in 10 degree latitude bands.
+        subset = subset.sel(lat=slice(40.0, 60.0))
     else:
         subset = subset.sel(lat=slice(51.5, 53.0), lon=slice(3.0, 6.0))
     assert all(size > 1 for size in subset.sizes.values())
@@ -98,4 +112,5 @@ def run_checker(
         for result in report[f"{priority}_priorities"]
         if result.value[0] < result.value[1]
         for message in result.msgs
+        if not any(text in message for text in FALSE_POSITIVES)
     ]

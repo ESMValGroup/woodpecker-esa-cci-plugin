@@ -1,0 +1,369 @@
+# Ozone from the Open Data Portal store: the total column from the daily
+# merged total column product (TC) and the monthly merged nadir profile
+# product (NP), and the zonal mean mole fraction from the monthly limb
+# profile products (LP) of single instruments. Each recipe provides one
+# CMIP7 variable. Steps with options that are the same in all recipes are
+# defined in the first recipe, and reused in the others with YAML aliases
+# (*name).
+recipes:
+  - id: esa_cci.ozone_toz_daily
+    description: >-
+      Prepare the total ozone column (atmosphere_mole_content_of_ozone) of
+      the ESA CCI daily merged total column product as the CMIP7 variable
+      toz
+    match:
+      path_patterns:
+        - "*esacci.OZONE.day.L3S.TC.multi-sensor.multi-platform.MERGED.fv0100.r1"
+    steps:
+      # Steps run in the order listed here. The variables are renamed last,
+      # so all steps use the original variable names. Woodpecker allows each
+      # fix only once per recipe.
+      # Missing values are stored as -9.9, outside the valid range, without
+      # a fill value. Before the range attributes are removed.
+      - id: esa_cci.apply_valid_range
+        options:
+          variables:
+            - atmosphere_mole_content_of_ozone
+            - atmosphere_mole_content_of_ozone_standard_error
+            - atmosphere_mole_content_of_ozone_standard_deviation
+            - atmosphere_mole_content_of_ozone_number_of_observations
+      # The range attributes become invalid when the values change, so
+      # remove them first. The time encoding is kept.
+      - id: esa_cci.remove_range_attributes
+      # Attributes that the Open Data Portal store adds to describe the
+      # original files.
+      - &remove_xcube_cci_odp_attributes
+        id: esa_cci.remove_xcube_cci_odp_attributes
+      # There are no latitude and longitude bounds. Before normalizing the
+      # longitude, so the bounds are wrapped too.
+      - &add_bounds
+        id: esa_cci.add_bounds
+        options:
+          coordinates: [lat, lon]
+      - id: esa_cci.set_attributes
+        options:
+          attributes:
+            atmosphere_mole_content_of_ozone:
+              # The CMIP7 standard name: in Dobson units, the total column
+              # is the thickness of the layer that the ozone would form at
+              # standard temperature and pressure.
+              standard_name: &toz_standard_name >-
+                equivalent_thickness_at_stp_of_atmosphere_ozone_content
+              long_name: Total Column Ozone
+              # A Dobson unit (DU) is 10 micrometres of ozone at standard
+              # temperature and pressure. The units registry does not know
+              # DU.
+              units: &dobson_unit "1E-05 m"
+              cell_methods: &mean "area: time: mean"
+              # Keeps the uncertainty, the standard deviation and the
+              # number of observations when selecting variables.
+              ancillary_variables: >-
+                atmosphere_mole_content_of_ozone_standard_error
+                atmosphere_mole_content_of_ozone_standard_deviation
+                atmosphere_mole_content_of_ozone_number_of_observations
+            # The standard_names of the uncertainty variables are not CF
+            # standard names, and the long names mention the original units.
+            atmosphere_mole_content_of_ozone_standard_error:
+              standard_name: >-
+                equivalent_thickness_at_stp_of_atmosphere_ozone_content
+                standard_error
+              long_name: Standard Error of the Mean Total Ozone Column
+              units: *dobson_unit
+            atmosphere_mole_content_of_ozone_standard_deviation:
+              standard_name: *toz_standard_name
+              long_name: Standard Deviation of the Mean Total Ozone Column
+              units: *dobson_unit
+              cell_methods: "area: time: standard_deviation"
+            atmosphere_mole_content_of_ozone_number_of_observations:
+              standard_name: number_of_observations
+              long_name: >-
+                Number of Measurements Used for the Mean Total Ozone Column
+            time: &time_attributes
+              # xarray decodes the times to numpy datetime64 or cftime,
+              # which do not count leap seconds.
+              units_metadata: "leap_seconds: none"
+              # Required by CMIP7 for the coordinates.
+              axis: T
+            lat: &lat_attributes
+              axis: "Y"
+            lon:
+              # The original units, degrees east, are not valid CF units.
+              units: degrees_east
+              axis: X
+      - id: esa_cci.convert_units
+        options:
+          units:
+            atmosphere_mole_content_of_ozone: m
+            atmosphere_mole_content_of_ozone_standard_error: m
+            atmosphere_mole_content_of_ozone_standard_deviation: m
+      - &remove_attributes
+        id: esa_cci.remove_attributes
+        options:
+          attributes:
+            # Bounds variables inherit the standard_name and long_name of
+            # their coordinate, and CF recommends leaving them out. The Open
+            # Data Portal store sets the invalid standard_name time_bnds.
+            lat_bnds: &bounds [standard_name, long_name, comment]
+            lon_bnds: *bounds
+            time_bnds: *bounds
+      - id: esa_cci.set_global_attributes
+        options:
+          attributes:
+            <<: &toz_global_attributes
+              Conventions: CF-1.11
+              realm: aerosol
+              # The CMIP7 variable, after renaming.
+              variable_id: toz
+              branded_variable: toz_tavg-u-hxy-u
+            frequency: day
+      - &set_time_units
+        id: esa_cci.set_time_units
+        options:
+          coordinate: time
+          units: days since 1850-01-01
+          # xarray decodes the times to numpy datetime64, which uses the
+          # proleptic Gregorian calendar.
+          calendar: proleptic_gregorian
+      # CMIP7 stores data in single precision, and coordinates in double
+      # precision.
+      - id: esa_cci.set_data_types
+        options:
+          data_types:
+            atmosphere_mole_content_of_ozone: float32
+            atmosphere_mole_content_of_ozone_standard_error: float32
+            atmosphere_mole_content_of_ozone_standard_deviation: float32
+            atmosphere_mole_content_of_ozone_number_of_observations: float32
+            lat: float64
+            lon: float64
+            lat_bnds: float64
+            lon_bnds: float64
+      - &normalize_longitude
+        id: esa_cci.normalize_longitude
+        options:
+          coordinate: lon
+      - id: esa_cci.select_variables
+        options:
+          variables: [atmosphere_mole_content_of_ozone]
+      - id: woodpecker.rename_variables
+        options:
+          mapping:
+            toz: [atmosphere_mole_content_of_ozone]
+
+  # The nadir profile product also has the partial columns, mole fractions
+  # and number densities of ozone on its own 16 layers or 17 pressure
+  # levels. The lowest level is the surface pressure, and the profiles have
+  # a low vertical resolution, so they are not interpolated to the CMIP7
+  # pressure levels. Only 36 of the months have data.
+  - id: esa_cci.ozone_toz
+    description: >-
+      Prepare the total ozone column (O3_du_tot) of the ESA CCI monthly
+      merged nadir profile product as the CMIP7 variable toz
+    match:
+      path_patterns:
+        - "*esacci.OZONE.mon.L3.NP.multi-sensor.multi-platform.MERGED.fv0002.r1"
+    steps:
+      - *remove_xcube_cci_odp_attributes
+      - *add_bounds
+      - id: esa_cci.set_attributes
+        options:
+          attributes:
+            O3_du_tot:
+              standard_name: *toz_standard_name
+              long_name: Total Column Ozone
+              # In Dobson units, given as 446.15E-6 mol m-2, the amount of
+              # ozone in a Dobson unit.
+              units: *dobson_unit
+              cell_methods: *mean
+              # Keeps the uncertainty when selecting variables.
+              ancillary_variables: O3e_du_tot
+            O3e_du_tot:
+              standard_name: >-
+                equivalent_thickness_at_stp_of_atmosphere_ozone_content
+                standard_error
+              long_name: Total Column Ozone Error
+              comment: >-
+                The errors of the partial columns of the layers, added
+                quadratically.
+              units: *dobson_unit
+            time: *time_attributes
+            # CMIP7 requires the plural.
+            lat:
+              units: degrees_north
+              axis: "Y"
+            lon:
+              units: degrees_east
+              axis: X
+      - id: esa_cci.convert_units
+        options:
+          units:
+            O3_du_tot: m
+            O3e_du_tot: m
+      - *remove_attributes
+      - id: esa_cci.set_global_attributes
+        options:
+          attributes:
+            <<: *toz_global_attributes
+            frequency: mon
+      - *set_time_units
+      - id: esa_cci.set_data_types
+        options:
+          data_types:
+            lat: float64
+            lon: float64
+            lat_bnds: float64
+            lon_bnds: float64
+      - *normalize_longitude
+      - id: esa_cci.select_variables
+        options:
+          variables: [O3_du_tot]
+      - id: woodpecker.rename_variables
+        options:
+          mapping:
+            toz: [O3_du_tot]
+
+  # The limb profile products are monthly zonal means in 10 degree
+  # latitude bands, on pressure levels from the upper troposphere to the
+  # mesosphere, from a single instrument each. They also have the number
+  # density of ozone, and inhomogeneity measures of the bins.
+  - id: esa_cci.ozone_o3_zonal_mean
+    description: >-
+      Prepare the zonal mean mole fraction of ozone (ozone_mixing_ratio) of
+      the ESA CCI monthly limb profile products as the CMIP7 variable o3, on
+      the CMIP7 pressure levels plev39
+    match:
+      path_patterns:
+        - "*esacci.OZONE.mon.L3.LP.*.v0001.r1"
+    steps:
+      # The files store zonal means, and the Open Data Portal store repeats
+      # them along a longitude dimension that it adds. It reads that from an
+      # attribute that the next step removes.
+      - id: esa_cci.remove_xcube_cci_odp_dimensions
+        options:
+          dimensions: [lon]
+      - *remove_xcube_cci_odp_attributes
+      - id: esa_cci.set_attributes
+        options:
+          attributes:
+            ozone_mixing_ratio:
+              long_name: Mole Fraction of O3
+              # A mole fraction, which is dimensionless.
+              units: "1"
+              # CF allows a standard name, longitude, for a mean over a
+              # coordinate that the variable does not have.
+              cell_methods: "longitude: time: mean where air"
+              # Keeps the uncertainties and the standard deviation when
+              # selecting variables.
+              ancillary_variables: >-
+                standard_error_of_the_mean mean_uncertainty_estimate
+                sample_standard_deviation
+            # In percent of the zonal mean, until they are converted below.
+            standard_error_of_the_mean:
+              standard_name: mole_fraction_of_ozone_in_air standard_error
+              long_name: Standard Error of the Monthly Zonal Mean
+            mean_uncertainty_estimate:
+              long_name: Mean of the Uncertainties of the Profiles
+              comment: >-
+                Mean of the uncertainties of the retrieved profiles in the
+                latitude band and month.
+            sample_standard_deviation:
+              standard_name: mole_fraction_of_ozone_in_air
+              long_name: Standard Deviation of the Profiles
+              cell_methods: "longitude: time: standard_deviation where air"
+            air_pressure:
+              long_name: pressure
+              positive: down
+              axis: Z
+            time: *time_attributes
+            lat: *lat_attributes
+      - id: esa_cci.convert_units
+        options:
+          units:
+            ozone_mixing_ratio: mol mol-1
+            air_pressure: Pa
+      - id: esa_cci.convert_relative_uncertainties
+        options:
+          uncertainties:
+            standard_error_of_the_mean: ozone_mixing_ratio
+            mean_uncertainty_estimate: ozone_mixing_ratio
+            sample_standard_deviation: ozone_mixing_ratio
+      # All levels of plev39 from 400 hPa up are levels of some of the
+      # products. The levels below are missing values, like those below the
+      # surface in model output.
+      - id: esa_cci.select_coordinate_values
+        options:
+          coordinate: air_pressure
+          values:
+            [
+              100000.0,
+              92500.0,
+              85000.0,
+              70000.0,
+              60000.0,
+              50000.0,
+              40000.0,
+              30000.0,
+              25000.0,
+              20000.0,
+              17000.0,
+              15000.0,
+              13000.0,
+              11500.0,
+              10000.0,
+              9000.0,
+              8000.0,
+              7000.0,
+              5000.0,
+              3000.0,
+              2000.0,
+              1500.0,
+              1000.0,
+              700.0,
+              500.0,
+              300.0,
+              200.0,
+              150.0,
+              100.0,
+              70.0,
+              50.0,
+              40.0,
+              30.0,
+              20.0,
+              15.0,
+              10.0,
+              7.0,
+              5.0,
+              3.0,
+            ]
+      - id: esa_cci.remove_attributes
+        options:
+          attributes:
+            lat_bnds: *bounds
+            time_bnds: *bounds
+      - id: esa_cci.set_global_attributes
+        options:
+          attributes:
+            Conventions: CF-1.11
+            realm: atmosChem
+            frequency: mon
+            # The CMIP7 variable, after renaming.
+            variable_id: o3
+            branded_variable: o3_tavg-p39-hy-air
+      - *set_time_units
+      - id: esa_cci.set_data_types
+        options:
+          data_types:
+            ozone_mixing_ratio: float32
+            standard_error_of_the_mean: float32
+            mean_uncertainty_estimate: float32
+            sample_standard_deviation: float32
+            air_pressure: float64
+            lat: float64
+            lat_bnds: float64
+      - id: esa_cci.select_variables
+        options:
+          variables: [ozone_mixing_ratio]
+      - id: woodpecker.rename_variables
+        options:
+          mapping:
+            o3: [ozone_mixing_ratio]
+            plev: [air_pressure]

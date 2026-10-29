@@ -300,6 +300,27 @@ CASES = [
         )
         for hemisphere in ("NH", "SH")
     ),
+    Case(
+        "cciodp",
+        "esacci.OZONE.day.L3S.TC.multi-sensor.multi-platform.MERGED.fv0100.r1",
+        "toz",
+    ),
+    Case(
+        "cciodp",
+        "esacci.OZONE.mon.L3.NP.multi-sensor.multi-platform.MERGED.fv0002.r1",
+        "toz",
+    ),
+    *(
+        Case("cciodp", f"esacci.OZONE.mon.L3.LP.{product}.v0001.r1", "o3")
+        for product in (
+            "GOMOS.Envisat.GOMOS_ENVISAT",
+            "MIPAS.Envisat.MIPAS_ENVISAT",
+            "OSIRIS.ODIN.OSIRIS_ODIN",
+            "SCIAMACHY.Envisat.SCIAMACHY_ENVISAT",
+            "SMR.ODIN.MZM",
+            "SMR.ODIN.SMR_ODIN",
+        )
+    ),
 ]
 
 

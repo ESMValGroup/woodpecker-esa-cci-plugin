@@ -105,6 +105,17 @@ pass to woodpecker.
   on the polar EASE-Grid 2.0 (x/y) with 2-D latitudes and longitudes:
   - Open Data Portal store:
     `esacci.SEAICE.day.L4.SICONC.multi-sensor.multi-platform.RE_SSMI_12-5kmEASE2-{NH,SH}.3-0.{NH,SH}`
+- Ozone, as the CMIP7 variables `toz`, the total column, and `o3`, the
+  mole fraction:
+  - Open Data Portal store, `toz` from the daily merged total column
+    product and the monthly merged nadir profile product:
+    `esacci.OZONE.day.L3S.TC.multi-sensor.multi-platform.MERGED.fv0100.r1`
+    and `esacci.OZONE.mon.L3.NP.multi-sensor.multi-platform.MERGED.fv0002.r1`
+  - Open Data Portal store, `o3` as monthly zonal means in 10° latitude
+    bands on the 39 CMIP7 pressure levels of `plev39` (`o3_tavg-p39-hy-air`),
+    from the limb profile products of GOMOS, MIPAS, OSIRIS, SCIAMACHY and
+    SMR: `esacci.OZONE.mon.L3.LP.*.v0001.r1`. They cover the levels from
+    the upper troposphere up, so the lower levels are missing values.
 
 The cloud and aerosol datasets provide several variables, each from its own
 recipe, named `esa_cci.<essential climate variable>_<variable>`, e.g.
@@ -153,6 +164,14 @@ iris loads as ancillary variables of the cube:
 - Snow: `scfg_unc` and `swe_std`, the standard errors of `snc` and `snw`.
 - Sea ice concentration: `total_standard_uncertainty`, the standard error
   of `siconc`. The `status_flag` is not kept.
+- Total ozone column: the standard error, standard deviation and number of
+  observations of `toz` from the total column product, and `O3e_du_tot`,
+  the standard error of `toz` from the nadir profile product.
+- Ozone zonal means: `standard_error_of_the_mean`, the standard error of
+  `o3`; `mean_uncertainty_estimate`, the mean of the uncertainties of the
+  profiles; and `sample_standard_deviation`, the standard deviation of the
+  profiles. The datasets give them in percent of `o3`, and the recipe
+  converts them to the units of `o3`.
 
 The 0.05° daily datasets have storage chunks of a few MB, so with those as
 dask chunks, each recipe step adds hundreds of thousands of tasks to the

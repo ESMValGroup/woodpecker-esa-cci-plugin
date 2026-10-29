@@ -22,6 +22,8 @@ recipes:
       # longitudes, which the files store in 2-D. It reads that from an
       # attribute that the next step removes.
       - id: esa_cci.remove_xcube_cci_odp_dimensions
+        options:
+          dimensions: [time]
       # Attributes that the Open Data Portal store adds to describe the
       # original files.
       - id: esa_cci.remove_xcube_cci_odp_attributes
