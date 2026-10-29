@@ -291,6 +291,15 @@ CASES = [
             "GLOBAL-MERGED_OI_Monthly_CENTRED_15Day_0-25deg.5-5",
         )
     ),
+    *(
+        Case(
+            "cciodp",
+            "esacci.SEAICE.day.L4.SICONC.multi-sensor.multi-platform."
+            f"RE_SSMI_12-5kmEASE2-{hemisphere}.3-0.{hemisphere}",
+            "siconc",
+        )
+        for hemisphere in ("NH", "SH")
+    ),
 ]
 
 
@@ -338,8 +347,16 @@ def _open_dataset(
         # The store has no option to set the chunks. With only a few time
         # steps, the dask graph is small with the storage chunks, and larger
         # dask chunks would read more files.
+        # Polar grids have x/y dimensions instead of lat/lon, with storage
+        # chunks of a whole time step.
         if full_time_axis:
-            dataset = dataset.chunk(CHUNKS)
+            dataset = dataset.chunk(
+                {
+                    dim: size
+                    for dim, size in CHUNKS.items()
+                    if dim in dataset.dims
+                }
+            )
     if case.store != "ccizarr" and not full_time_axis:
         dataset = dataset.isel(time=slice(case.opened_time_steps))
     return dataset

@@ -109,3 +109,43 @@ def test_bounds_of_cell_crossing_zero_keep_width(dataset: xr.Dataset) -> None:
     np.testing.assert_array_equal(
         dataset["lon_bnds"], [[-45, 45], [45, 135], [135, 225], [225, 315]]
     )
+
+
+def test_2d_longitude_is_wrapped_in_place() -> None:
+    # Like the longitudes of a polar grid, with the vertices of each cell
+    # within 180 degrees of its center.
+    lon = np.array([[-135.0, 135.0], [-45.0, 45.0]])
+    lon_bnds = lon[..., np.newaxis] + [-10.0, 10.0, 10.0, -10.0]
+    lon_bnds[0, 1, 1] = 180.5
+    dataset = xr.Dataset(
+        {
+            "ice_conc": (("yc", "xc"), [[1.0, 2.0], [3.0, 4.0]]),
+            "lon_bnds": (("yc", "xc", "vertices"), lon_bnds),
+        },
+        coords={
+            "lon": (
+                ("yc", "xc"),
+                lon,
+                {"bounds": "lon_bnds", "valid_min": -180.0},
+            ),
+        },
+    )
+
+    findings = woodpecker.check(dataset, fixes=FIX_ID, options=OPTIONS)
+    assert findings.fix_ids == (FIX_ID,)
+
+    woodpecker.apply(dataset, fixes=FIX_ID, dry_run=False, options=OPTIONS)
+    np.testing.assert_array_equal(dataset["lon"], [[225, 135], [315, 45]])
+    assert dataset["lon"].attrs == {"bounds": "lon_bnds"}
+    # The vertices are shifted by the offset of the center of their cell.
+    expected = lon_bnds + np.array([[360.0, 0.0], [360.0, 0.0]])[..., None]
+    np.testing.assert_array_equal(dataset["lon_bnds"], expected)
+    np.testing.assert_array_equal(dataset["ice_conc"], [[1, 2], [3, 4]])
+    assert not woodpecker.check(dataset, fixes=FIX_ID, options=OPTIONS)
+
+
+def test_2d_longitude_without_bounds_is_wrapped() -> None:
+    dataset = xr.Dataset(coords={"lon": (("yc", "xc"), [[-90.0, 90.0]])})
+
+    woodpecker.apply(dataset, fixes=FIX_ID, dry_run=False, options=OPTIONS)
+    np.testing.assert_array_equal(dataset["lon"], [[270, 90]])

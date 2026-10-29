@@ -100,6 +100,11 @@ pass to woodpecker.
   - Open Data Portal store, `snc` v2.0 and `snw` v2.0, v3.1 and v4.0:
     `esacci.SNOW.day.L3C.SCFG.multi-sensor.multi-platform.AVHRR_MERGED.2-0.r1`
     and `esacci.SNOW.day.L3C.SWE.multi-sensor.multi-platform.MERGED.*.r1`
+- Sea ice concentration, daily SSM/I and SSMIS v3.0 at 12.5 km, as the
+  CMIP7 variable `siconc`, for the northern and the southern hemisphere,
+  on the polar EASE-Grid 2.0 (x/y) with 2-D latitudes and longitudes:
+  - Open Data Portal store:
+    `esacci.SEAICE.day.L4.SICONC.multi-sensor.multi-platform.RE_SSMI_12-5kmEASE2-{NH,SH}.3-0.{NH,SH}`
 
 The cloud and aerosol datasets provide several variables, each from its own
 recipe, named `esa_cci.<essential climate variable>_<variable>`, e.g.
@@ -146,6 +151,8 @@ iris loads as ancillary variables of the cube:
   of `od550aer`, `od550lt1aer` and `abs550aer`; and `pixel_count`, the
   number of observations.
 - Snow: `scfg_unc` and `swe_std`, the standard errors of `snc` and `snw`.
+- Sea ice concentration: `total_standard_uncertainty`, the standard error
+  of `siconc`. The `status_flag` is not kept.
 
 The 0.05° daily datasets have storage chunks of a few MB, so with those as
 dask chunks, each recipe step adds hundreds of thousands of tasks to the

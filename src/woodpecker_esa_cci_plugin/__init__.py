@@ -5,6 +5,7 @@ imports it automatically through the ``woodpecker.plugins`` entry point.
 """
 
 from .fixes.add_bounds import AddBounds
+from .fixes.add_geographic_bounds import AddGeographicBounds
 from .fixes.add_scalar_coordinate import AddScalarCoordinate
 from .fixes.center_time import CenterTime
 from .fixes.convert_units import ConvertUnits
@@ -18,6 +19,7 @@ from .fixes.remove_invalid_coordinates import RemoveInvalidCoordinates
 from .fixes.remove_packing import RemovePacking
 from .fixes.remove_range_attributes import RemoveRangeAttributes
 from .fixes.remove_xcube_cci_odp_attributes import RemoveXcubeCciOdpAttributes
+from .fixes.remove_xcube_cci_odp_dimensions import RemoveXcubeCciOdpDimensions
 from .fixes.select_time_steps import SelectTimeSteps
 from .fixes.select_variables import SelectVariables
 from .fixes.set_attributes import SetAttributes
@@ -27,6 +29,7 @@ from .fixes.set_time_units import SetTimeUnits
 
 __all__ = [
     "AddBounds",
+    "AddGeographicBounds",
     "AddScalarCoordinate",
     "CenterTime",
     "ConvertUnits",
@@ -40,6 +43,7 @@ __all__ = [
     "RemovePacking",
     "RemoveRangeAttributes",
     "RemoveXcubeCciOdpAttributes",
+    "RemoveXcubeCciOdpDimensions",
     "SelectTimeSteps",
     "SelectVariables",
     "SetAttributes",

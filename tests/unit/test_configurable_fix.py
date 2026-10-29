@@ -24,7 +24,7 @@ CONFIGURABLE_FIX_IDS = [fix_id for fix_id in FIX_IDS if _has_options(fix_id)]
 
 
 def test_all_plugin_fixes_are_found() -> None:
-    assert len(FIX_IDS) == 20
+    assert len(FIX_IDS) == 22
 
 
 @pytest.mark.parametrize("fix_id", FIX_IDS)
