@@ -43,6 +43,7 @@ def test_recipe_fixes_dataset(tcwv_dataset: xr.Dataset) -> None:
 
     findings = woodpecker.recipe.check(tcwv_dataset, recipe)
     assert set(findings.fix_ids) == {
+        "esa_cci.fix_variable_references",
         "esa_cci.grid_mapping_from_wkt",
         "esa_cci.select_variables",
         "esa_cci.set_attributes",

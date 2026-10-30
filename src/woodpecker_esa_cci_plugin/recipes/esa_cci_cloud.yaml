@@ -17,6 +17,20 @@ recipes:
       # Steps run in the order listed here. The variables are renamed last,
       # so all steps use the original variable names. Woodpecker allows each
       # fix only once per recipe.
+      # Select the variables first, so the other steps only process those.
+      # cfc refers to the variables to keep with it: the uncertainties, the
+      # standard deviation and the number of observations.
+      - id: esa_cci.fix_variable_references
+        options:
+          references:
+            cfc:
+              # The correlated uncertainty cfc_corr_unc is left out: it is
+              # zero everywhere.
+              ancillary_variables: cfc_unc cfc_prop_unc cfc_std nobs
+      - &select_cfc
+        id: esa_cci.select_variables
+        options:
+          variables: [cfc]
       # Packing and the range attributes become invalid when the values
       # change, so remove them first. The time encoding is kept.
       - id: esa_cci.remove_packing
@@ -52,11 +66,6 @@ recipes:
             cfc: &cfc_attributes
               long_name: Total Cloud Cover Percentage
               cell_methods: "area: time: mean"
-              # Keeps the uncertainties, the standard deviation and the
-              # number of observations when selecting variables. The
-              # correlated uncertainty cfc_corr_unc is left out: it is zero
-              # everywhere.
-              ancillary_variables: cfc_unc cfc_prop_unc cfc_std nobs
             # The Product User Guide (D3.3, v5.1) describes how the monthly
             # values are computed from the pixels: Level-3C means and
             # uncertainties in its Annex C.
@@ -140,10 +149,6 @@ recipes:
         id: esa_cci.normalize_longitude
         options:
           coordinate: lon
-      - &select_cfc
-        id: esa_cci.select_variables
-        options:
-          variables: [cfc]
       - &rename_cfc
         id: woodpecker.rename_variables
         options:
@@ -160,6 +165,12 @@ recipes:
       path_patterns:
         - "*ESACCI-L3C_CLOUD-CLD_PRODUCTS-AVHRR_NOAA-1982-2016-fv3.0.zarr"
     steps:
+      - id: esa_cci.fix_variable_references
+        options:
+          references:
+            cfc:
+              ancillary_variables: cfc_unc cfc_std nobs
+      - *select_cfc
       - id: esa_cci.remove_packing
       - id: esa_cci.remove_range_attributes
       - id: esa_cci.remove_xcube_cci_odp_attributes
@@ -169,9 +180,7 @@ recipes:
       - id: esa_cci.set_attributes
         options:
           attributes:
-            cfc:
-              <<: *cfc_attributes
-              ancillary_variables: cfc_unc cfc_std nobs
+            cfc: *cfc_attributes
             cfc_unc: *cfc_unc_attributes
             cfc_std: *cfc_std_attributes
             nobs: *nobs_attributes
@@ -191,7 +200,6 @@ recipes:
         options:
           data_types: *cfc_data_types
       - *normalize_longitude
-      - *select_cfc
       - *rename_cfc
 
   # The uncertainties of the water paths, such as lwp_unc, are those of the
@@ -205,6 +213,10 @@ recipes:
     match:
       path_patterns: *avhrr_patterns
     steps:
+      - id: esa_cci.fix_variable_references
+      - id: esa_cci.select_variables
+        options:
+          variables: [lwp_allsky]
       - id: esa_cci.remove_packing
       - id: esa_cci.remove_range_attributes
       - id: esa_cci.remove_xcube_cci_odp_attributes
@@ -240,9 +252,6 @@ recipes:
             <<: *coordinate_data_types
             lwp_allsky: float32
       - *normalize_longitude
-      - id: esa_cci.select_variables
-        options:
-          variables: [lwp_allsky]
       - id: woodpecker.rename_variables
         options:
           mapping:
@@ -255,6 +264,10 @@ recipes:
     match:
       path_patterns: *avhrr_patterns
     steps:
+      - id: esa_cci.fix_variable_references
+      - id: esa_cci.select_variables
+        options:
+          variables: [iwp_allsky]
       - id: esa_cci.remove_packing
       - id: esa_cci.remove_range_attributes
       - id: esa_cci.remove_xcube_cci_odp_attributes
@@ -288,9 +301,6 @@ recipes:
             <<: *coordinate_data_types
             iwp_allsky: float32
       - *normalize_longitude
-      - id: esa_cci.select_variables
-        options:
-          variables: [iwp_allsky]
       - id: woodpecker.rename_variables
         options:
           mapping:
@@ -304,6 +314,10 @@ recipes:
     match:
       path_patterns: *avhrr_patterns
     steps:
+      - id: esa_cci.fix_variable_references
+      - id: esa_cci.select_variables
+        options:
+          variables: [toa_lwup]
       - id: esa_cci.remove_packing
       - id: esa_cci.remove_range_attributes
       - id: esa_cci.remove_xcube_cci_odp_attributes
@@ -334,9 +348,6 @@ recipes:
             <<: *coordinate_data_types
             toa_lwup: float32
       - *normalize_longitude
-      - id: esa_cci.select_variables
-        options:
-          variables: [toa_lwup]
       - id: woodpecker.rename_variables
         options:
           mapping:
@@ -350,6 +361,10 @@ recipes:
     match:
       path_patterns: *avhrr_patterns
     steps:
+      - id: esa_cci.fix_variable_references
+      - id: esa_cci.select_variables
+        options:
+          variables: [toa_lwup_clr]
       - id: esa_cci.remove_packing
       - id: esa_cci.remove_range_attributes
       - id: esa_cci.remove_xcube_cci_odp_attributes
@@ -380,9 +395,6 @@ recipes:
             <<: *coordinate_data_types
             toa_lwup_clr: float32
       - *normalize_longitude
-      - id: esa_cci.select_variables
-        options:
-          variables: [toa_lwup_clr]
       - id: woodpecker.rename_variables
         options:
           mapping:
@@ -396,6 +408,10 @@ recipes:
     match:
       path_patterns: *avhrr_patterns
     steps:
+      - id: esa_cci.fix_variable_references
+      - id: esa_cci.select_variables
+        options:
+          variables: [toa_swup]
       - id: esa_cci.remove_packing
       - id: esa_cci.remove_range_attributes
       - id: esa_cci.remove_xcube_cci_odp_attributes
@@ -426,9 +442,6 @@ recipes:
             <<: *coordinate_data_types
             toa_swup: float32
       - *normalize_longitude
-      - id: esa_cci.select_variables
-        options:
-          variables: [toa_swup]
       - id: woodpecker.rename_variables
         options:
           mapping:
@@ -442,6 +455,10 @@ recipes:
     match:
       path_patterns: *avhrr_patterns
     steps:
+      - id: esa_cci.fix_variable_references
+      - id: esa_cci.select_variables
+        options:
+          variables: [toa_swup_clr]
       - id: esa_cci.remove_packing
       - id: esa_cci.remove_range_attributes
       - id: esa_cci.remove_xcube_cci_odp_attributes
@@ -472,9 +489,6 @@ recipes:
             <<: *coordinate_data_types
             toa_swup_clr: float32
       - *normalize_longitude
-      - id: esa_cci.select_variables
-        options:
-          variables: [toa_swup_clr]
       - id: woodpecker.rename_variables
         options:
           mapping:
@@ -488,6 +502,10 @@ recipes:
     match:
       path_patterns: *avhrr_patterns
     steps:
+      - id: esa_cci.fix_variable_references
+      - id: esa_cci.select_variables
+        options:
+          variables: [toa_swdn]
       - id: esa_cci.remove_packing
       - id: esa_cci.remove_range_attributes
       - id: esa_cci.remove_xcube_cci_odp_attributes
@@ -521,9 +539,6 @@ recipes:
             <<: *coordinate_data_types
             toa_swdn: float32
       - *normalize_longitude
-      - id: esa_cci.select_variables
-        options:
-          variables: [toa_swdn]
       - id: woodpecker.rename_variables
         options:
           mapping:
@@ -537,6 +552,10 @@ recipes:
     match:
       path_patterns: *avhrr_patterns
     steps:
+      - id: esa_cci.fix_variable_references
+      - id: esa_cci.select_variables
+        options:
+          variables: [boa_lwup]
       - id: esa_cci.remove_packing
       - id: esa_cci.remove_range_attributes
       - id: esa_cci.remove_xcube_cci_odp_attributes
@@ -567,9 +586,6 @@ recipes:
             <<: *coordinate_data_types
             boa_lwup: float32
       - *normalize_longitude
-      - id: esa_cci.select_variables
-        options:
-          variables: [boa_lwup]
       - id: woodpecker.rename_variables
         options:
           mapping:
@@ -583,6 +599,10 @@ recipes:
     match:
       path_patterns: *avhrr_patterns
     steps:
+      - id: esa_cci.fix_variable_references
+      - id: esa_cci.select_variables
+        options:
+          variables: [boa_swup]
       - id: esa_cci.remove_packing
       - id: esa_cci.remove_range_attributes
       - id: esa_cci.remove_xcube_cci_odp_attributes
@@ -613,9 +633,6 @@ recipes:
             <<: *coordinate_data_types
             boa_swup: float32
       - *normalize_longitude
-      - id: esa_cci.select_variables
-        options:
-          variables: [boa_swup]
       - id: woodpecker.rename_variables
         options:
           mapping:
@@ -629,6 +646,10 @@ recipes:
     match:
       path_patterns: *avhrr_patterns
     steps:
+      - id: esa_cci.fix_variable_references
+      - id: esa_cci.select_variables
+        options:
+          variables: [boa_swup_clr]
       - id: esa_cci.remove_packing
       - id: esa_cci.remove_range_attributes
       - id: esa_cci.remove_xcube_cci_odp_attributes
@@ -659,9 +680,6 @@ recipes:
             <<: *coordinate_data_types
             boa_swup_clr: float32
       - *normalize_longitude
-      - id: esa_cci.select_variables
-        options:
-          variables: [boa_swup_clr]
       - id: woodpecker.rename_variables
         options:
           mapping:
@@ -675,6 +693,10 @@ recipes:
     match:
       path_patterns: *avhrr_patterns
     steps:
+      - id: esa_cci.fix_variable_references
+      - id: esa_cci.select_variables
+        options:
+          variables: [boa_lwdn]
       - id: esa_cci.remove_packing
       - id: esa_cci.remove_range_attributes
       - id: esa_cci.remove_xcube_cci_odp_attributes
@@ -705,9 +727,6 @@ recipes:
             <<: *coordinate_data_types
             boa_lwdn: float32
       - *normalize_longitude
-      - id: esa_cci.select_variables
-        options:
-          variables: [boa_lwdn]
       - id: woodpecker.rename_variables
         options:
           mapping:
@@ -721,6 +740,10 @@ recipes:
     match:
       path_patterns: *avhrr_patterns
     steps:
+      - id: esa_cci.fix_variable_references
+      - id: esa_cci.select_variables
+        options:
+          variables: [boa_lwdn_clr]
       - id: esa_cci.remove_packing
       - id: esa_cci.remove_range_attributes
       - id: esa_cci.remove_xcube_cci_odp_attributes
@@ -755,9 +778,6 @@ recipes:
             <<: *coordinate_data_types
             boa_lwdn_clr: float32
       - *normalize_longitude
-      - id: esa_cci.select_variables
-        options:
-          variables: [boa_lwdn_clr]
       - id: woodpecker.rename_variables
         options:
           mapping:
@@ -771,6 +791,10 @@ recipes:
     match:
       path_patterns: *avhrr_patterns
     steps:
+      - id: esa_cci.fix_variable_references
+      - id: esa_cci.select_variables
+        options:
+          variables: [boa_swdn]
       - id: esa_cci.remove_packing
       - id: esa_cci.remove_range_attributes
       - id: esa_cci.remove_xcube_cci_odp_attributes
@@ -801,9 +825,6 @@ recipes:
             <<: *coordinate_data_types
             boa_swdn: float32
       - *normalize_longitude
-      - id: esa_cci.select_variables
-        options:
-          variables: [boa_swdn]
       - id: woodpecker.rename_variables
         options:
           mapping:
@@ -817,6 +838,10 @@ recipes:
     match:
       path_patterns: *avhrr_patterns
     steps:
+      - id: esa_cci.fix_variable_references
+      - id: esa_cci.select_variables
+        options:
+          variables: [boa_swdn_clr]
       - id: esa_cci.remove_packing
       - id: esa_cci.remove_range_attributes
       - id: esa_cci.remove_xcube_cci_odp_attributes
@@ -847,9 +872,6 @@ recipes:
             <<: *coordinate_data_types
             boa_swdn_clr: float32
       - *normalize_longitude
-      - id: esa_cci.select_variables
-        options:
-          variables: [boa_swdn_clr]
       - id: woodpecker.rename_variables
         options:
           mapping:

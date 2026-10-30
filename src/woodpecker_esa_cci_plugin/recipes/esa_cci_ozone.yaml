@@ -18,6 +18,20 @@ recipes:
       # Steps run in the order listed here. The variables are renamed last,
       # so all steps use the original variable names. Woodpecker allows each
       # fix only once per recipe.
+      # Select the variables first, so the other steps only process those.
+      # The selected variable refers to the variables to keep with it: the
+      # uncertainty, the standard deviation and the number of observations.
+      - id: esa_cci.fix_variable_references
+        options:
+          references:
+            atmosphere_mole_content_of_ozone:
+              ancillary_variables: >-
+                atmosphere_mole_content_of_ozone_standard_error
+                atmosphere_mole_content_of_ozone_standard_deviation
+                atmosphere_mole_content_of_ozone_number_of_observations
+      - id: esa_cci.select_variables
+        options:
+          variables: [atmosphere_mole_content_of_ozone]
       # Missing values are stored as -9.9, outside the valid range, without
       # a fill value. Before the range attributes are removed.
       - id: esa_cci.apply_valid_range
@@ -55,12 +69,6 @@ recipes:
               # DU.
               units: &dobson_unit "1E-05 m"
               cell_methods: &mean "area: time: mean"
-              # Keeps the uncertainty, the standard deviation and the
-              # number of observations when selecting variables.
-              ancillary_variables: >-
-                atmosphere_mole_content_of_ozone_standard_error
-                atmosphere_mole_content_of_ozone_standard_deviation
-                atmosphere_mole_content_of_ozone_number_of_observations
             # The standard_names of the uncertainty variables are not CF
             # standard names, and the long names mention the original units.
             atmosphere_mole_content_of_ozone_standard_error:
@@ -141,9 +149,6 @@ recipes:
         id: esa_cci.normalize_longitude
         options:
           coordinate: lon
-      - id: esa_cci.select_variables
-        options:
-          variables: [atmosphere_mole_content_of_ozone]
       - id: woodpecker.rename_variables
         options:
           mapping:
@@ -162,6 +167,14 @@ recipes:
       path_patterns:
         - "*esacci.OZONE.mon.L3.NP.multi-sensor.multi-platform.MERGED.fv0002.r1"
     steps:
+      - id: esa_cci.fix_variable_references
+        options:
+          references:
+            O3_du_tot:
+              ancillary_variables: O3e_du_tot
+      - id: esa_cci.select_variables
+        options:
+          variables: [O3_du_tot]
       - *remove_xcube_cci_odp_attributes
       - *add_bounds
       - id: esa_cci.set_attributes
@@ -174,8 +187,6 @@ recipes:
               # ozone in a Dobson unit.
               units: *dobson_unit
               cell_methods: *mean
-              # Keeps the uncertainty when selecting variables.
-              ancillary_variables: O3e_du_tot
             O3e_du_tot:
               standard_name: >-
                 equivalent_thickness_at_stp_of_atmosphere_ozone_content
@@ -213,9 +224,6 @@ recipes:
             lat_bnds: float64
             lon_bnds: float64
       - *normalize_longitude
-      - id: esa_cci.select_variables
-        options:
-          variables: [O3_du_tot]
       - id: woodpecker.rename_variables
         options:
           mapping:
@@ -236,10 +244,22 @@ recipes:
     steps:
       # The files store zonal means, and the Open Data Portal store repeats
       # them along a longitude dimension that it adds. It reads that from an
-      # attribute that the next step removes.
+      # attribute that esa_cci.remove_xcube_cci_odp_attributes removes.
+      # Before selecting the variables, so that the selection drops the
+      # longitude coordinate, which no variable uses then.
       - id: esa_cci.remove_xcube_cci_odp_dimensions
         options:
           dimensions: [lon]
+      - id: esa_cci.fix_variable_references
+        options:
+          references:
+            ozone_mixing_ratio:
+              ancillary_variables: >-
+                standard_error_of_the_mean mean_uncertainty_estimate
+                sample_standard_deviation
+      - id: esa_cci.select_variables
+        options:
+          variables: [ozone_mixing_ratio]
       - *remove_xcube_cci_odp_attributes
       - id: esa_cci.set_attributes
         options:
@@ -251,11 +271,6 @@ recipes:
               # CF allows a standard name, longitude, for a mean over a
               # coordinate that the variable does not have.
               cell_methods: "longitude: time: mean where air"
-              # Keeps the uncertainties and the standard deviation when
-              # selecting variables.
-              ancillary_variables: >-
-                standard_error_of_the_mean mean_uncertainty_estimate
-                sample_standard_deviation
             # In percent of the zonal mean, until they are converted below.
             standard_error_of_the_mean:
               standard_name: mole_fraction_of_ozone_in_air standard_error
@@ -359,9 +374,6 @@ recipes:
             air_pressure: float64
             lat: float64
             lat_bnds: float64
-      - id: esa_cci.select_variables
-        options:
-          variables: [ozone_mixing_ratio]
       - id: woodpecker.rename_variables
         options:
           mapping:

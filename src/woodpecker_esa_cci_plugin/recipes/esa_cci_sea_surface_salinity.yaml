@@ -16,6 +16,20 @@ recipes:
       # Steps run in the order listed here. The variables are renamed last,
       # so all steps use the original variable names. Woodpecker allows each
       # fix only once per recipe.
+      # Select the variables first, so the other steps only process those.
+      # sss refers to the variables to keep with it: the uncertainty and the
+      # number of observations.
+      - id: esa_cci.fix_variable_references
+        options:
+          references:
+            sss:
+              ancillary_variables: sss_random_error total_nobs
+            # It refers to variables that are not kept.
+            sss_random_error:
+              ancillary_variables: ""
+      - id: esa_cci.select_variables
+        options:
+          variables: [sss]
       # Packing and the range attributes become invalid when the values
       # change, so remove them first. The time encoding is kept.
       - id: esa_cci.remove_packing
@@ -52,9 +66,6 @@ recipes:
               # versions have no units, and others 0.001, which is the same.
               units: "1E-03"
               cell_methods: "area: mean where sea time: mean"
-              # Keeps the uncertainty and the number of observations when
-              # selecting variables.
-              ancillary_variables: sss_random_error total_nobs
             # The estimated standard deviation of the random error of sss.
             sss_random_error:
               standard_name: sea_surface_salinity standard_error
@@ -79,7 +90,7 @@ recipes:
             # A misspelled ancillary_variables attribute, which refers to
             # variables that are not kept.
             sss: [ancilliary]
-            sss_random_error: [ancilliary, ancillary_variables]
+            sss_random_error: [ancilliary]
             # Bounds variables inherit the standard_name and long_name of
             # their coordinate, and CF recommends leaving them out. The Open
             # Data Portal store sets the invalid standard_name time_bnds.
@@ -130,9 +141,6 @@ recipes:
       - id: esa_cci.normalize_longitude
         options:
           coordinate: lon
-      - id: esa_cci.select_variables
-        options:
-          variables: [sss]
       - id: woodpecker.rename_variables
         options:
           mapping:

@@ -12,7 +12,7 @@ data stores that open them:
 """
 
 from importlib.metadata import version
-from typing import Literal, NamedTuple
+from typing import Any, Literal, NamedTuple
 
 import pytest
 import woodpecker
@@ -155,13 +155,6 @@ CLOUD_DATASETS: tuple[tuple[Store, str], ...] = (
         for orbit in ("AM", "PM")
     ),
 )
-# The variables that the daily ocean colour recipe keeps.
-OC_DAILY_VARIABLES = (
-    "chlor_a",
-    "chlor_a_log10_rmsd",
-    "chlor_a_log10_bias",
-    "total_nobs",
-)
 # The Open Data Portal datasets of the water vapour recipes.
 ODP_WATER_VAPOUR = (
     "esacci.WATERVAPOUR.{frequency}.L3S.TCWV.multi-sensor.multi-platform."
@@ -177,9 +170,7 @@ class Case(NamedTuple):
     variables, each from its own recipe, ``recipe_id`` selects the recipe.
     Without --full-time-axis, ``opened_time_steps`` of the Kerchunk and Open
     Data Portal datasets are opened, which is more than ``TIME_STEPS`` for
-    recipes that remove time steps. Datasets with many variables can be
-    opened with only ``variable_names``, because the dask graph of all
-    variables takes GBs of memory.
+    recipes that remove time steps.
     """
 
     store: Store
@@ -187,7 +178,6 @@ class Case(NamedTuple):
     variable_id: str
     recipe_id: str | None = None
     opened_time_steps: int = TIME_STEPS
-    variable_names: tuple[str, ...] | None = None
 
     @property
     def id(self) -> str:
@@ -338,8 +328,6 @@ CASES = [
             "SMR.ODIN.SMR_ODIN",
         )
     ),
-    # The daily datasets with all ~90 ocean colour variables are opened with
-    # only those that the recipe keeps.
     Case(
         "ccizarr",
         "ESACCI-OC-L3S-OC_PRODUCTS-MERGED-1M_MONTHLY_4km_GEO_PML_OCx_QAA-"
@@ -351,7 +339,6 @@ CASES = [
         "ESACCI-OC-L3S-OC_PRODUCTS-MERGED-1D_DAILY_4km_GEO_PML_OCx_QAA-"
         "1997-2022-fv6.0.zarr",
         "chl",
-        variable_names=OC_DAILY_VARIABLES,
     ),
     Case(
         "ccikc",
@@ -370,16 +357,63 @@ CASES = [
             ("mon", "CHLOR_A"),
             ("mon", "OC_PRODUCTS"),
             ("day", "CHLOR_A"),
+            ("day", "OC_PRODUCTS"),
         )
     ),
-    Case(
-        "cciodp",
-        "esacci.OC.day.L3S.OC_PRODUCTS.multi-sensor.multi-platform.MERGED."
-        "6-0.geographic",
-        "chl",
-        variable_names=OC_DAILY_VARIABLES,
-    ),
 ]
+# The recipe steps that select the variables. The recipes run them first, so
+# opening only the selected variables gives the same result.
+SELECTION_FIXES = (
+    "esa_cci.fix_variable_references",
+    "esa_cci.select_variables",
+)
+
+
+def apply_recipe(
+    case: Case,
+    dataset: xr.Dataset,
+    fixes: tuple[str, ...] | None = None,
+) -> None:
+    """Apply the recipe matching ``case`` to ``dataset``, in place.
+
+    Woodpecker selects the recipe by matching the recipe ``path_patterns``
+    against the data id, so the data id is passed as the input name, or by
+    the recipe id of datasets with several recipes. With ``fixes``, only
+    those steps of the recipe are applied.
+    """
+    woodpecker.recipe.apply(
+        XarrayInput(payload=dataset, name=case.data_id),
+        woodpecker.recipe.catalog(),
+        recipe_id=case.recipe_id,
+        fixes=fixes,
+        dry_run=False,
+    )
+
+
+def select_variables(case: Case, dataset: xr.Dataset) -> None:
+    """Keep the variables that the recipe of ``case`` keeps, in place."""
+    apply_recipe(case, dataset, fixes=SELECTION_FIXES)
+
+
+def _odp_variable_names(case: Case, store: Any) -> list[str]:  # noqa: ANN401
+    """Return the variables of an Open Data Portal dataset to open.
+
+    The store creates the dask arrays of all variables over the whole time
+    axis when it opens a dataset, which takes GBs of memory for datasets
+    with many variables, so only the variables that the recipe keeps are
+    opened. They are selected from a dataset without data, made from the
+    description of the dataset. The store adds the coordinates and the grid
+    mapping of the variables.
+    """
+    description = store.describe_data(case.data_id)
+    dataset = xr.Dataset(
+        {
+            name: xr.Variable((), 0, attrs=dict(variable.attrs or {}))
+            for name, variable in description.data_vars.items()
+        }
+    )
+    select_variables(case, dataset)
+    return [str(name) for name in dataset.data_vars]
 
 
 def _open_dataset(
@@ -422,11 +456,10 @@ def _open_dataset(
         xcube_store = pytest.importorskip("xcube.core.store")
         if not decode_times:
             pytest.skip("The Open Data Portal store always decodes the times")
-        params = {}
-        if case.variable_names is not None:
-            params["variable_names"] = list(case.variable_names)
-        dataset = xcube_store.new_data_store("cciodp").open_data(
-            case.data_id, **params
+        store = xcube_store.new_data_store("cciodp")
+        dataset = store.open_data(
+            case.data_id,
+            variable_names=_odp_variable_names(case, store),
         )
         # The store has no option to set the chunks. With only a few time
         # steps, the dask graph is small with the storage chunks, and larger
@@ -441,8 +474,6 @@ def _open_dataset(
                     if dim in dataset.dims
                 }
             )
-    if case.variable_names is not None:
-        dataset = dataset[list(case.variable_names)]
     if case.store != "ccizarr" and not full_time_axis:
         dataset = dataset.isel(time=slice(case.opened_time_steps))
     return dataset
@@ -456,9 +487,7 @@ def open_fixed_dataset(
 ) -> xr.Dataset:
     """Open the dataset of ``case`` lazily and apply the recipe matching it.
 
-    Woodpecker selects the recipe by matching the recipe ``path_patterns``
-    against the data id, so the data id is passed as the input name. With
-    ``decode_times=False``, the times are kept as numbers. Without
+    With ``decode_times=False``, the times are kept as numbers. Without
     ``full_time_axis``, only the first time steps of the Kerchunk and Open
     Data Portal datasets are used.
     """
@@ -467,10 +496,5 @@ def open_fixed_dataset(
         decode_times=decode_times,
         full_time_axis=full_time_axis,
     )
-    woodpecker.recipe.apply(
-        XarrayInput(payload=dataset, name=case.data_id),
-        woodpecker.recipe.catalog(),
-        recipe_id=case.recipe_id,
-        dry_run=False,
-    )
+    apply_recipe(case, dataset)
     return dataset

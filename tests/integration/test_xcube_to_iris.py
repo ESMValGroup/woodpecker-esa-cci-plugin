@@ -1,10 +1,8 @@
 import warnings
 
 import pytest
-import woodpecker
-from woodpecker.io.backends.xr import XarrayInput
 
-from .esa_cci_data import CASES, CHUNKS, Case
+from .esa_cci_data import CASES, CHUNKS, Case, apply_recipe, select_variables
 
 xcube_store = pytest.importorskip("xcube.core.store")
 iris = pytest.importorskip("iris")
@@ -25,19 +23,13 @@ def test_loads_with_iris_without_warnings(
 ) -> None:
     store = xcube_store.new_data_store(case.store)
     dataset = store.open_data(case.data_id)
-    if case.variable_names is not None:
-        dataset = dataset[list(case.variable_names)]
+    # Before rechunking, which takes long for all variables of the datasets
+    # with many variables.
+    select_variables(case, dataset)
     if case.store == "ccikc" and not full_time_axis:
         dataset = dataset.isel(time=slice(case.opened_time_steps))
     dataset = dataset.chunk(CHUNKS)
-    # Woodpecker selects the recipe by matching its path_patterns against
-    # the data id, or by the recipe id of datasets with several recipes.
-    woodpecker.recipe.apply(
-        XarrayInput(payload=dataset, name=case.data_id),
-        woodpecker.recipe.catalog(),
-        recipe_id=case.recipe_id,
-        dry_run=False,
-    )
+    apply_recipe(case, dataset)
 
     with warnings.catch_warnings():
         warnings.simplefilter("error")

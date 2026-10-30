@@ -16,6 +16,11 @@ recipes:
       # Steps run in the order listed here. The variables are renamed last,
       # so all steps use the original variable names. Woodpecker allows each
       # fix only once per recipe.
+      # Select the variables first, so the other steps only process those.
+      - id: esa_cci.fix_variable_references
+      - id: esa_cci.select_variables
+        options:
+          variables: [scfg]
       # Packing and the range attributes become invalid when the values
       # change, so remove them first. The time encoding is kept.
       - id: esa_cci.remove_packing
@@ -116,9 +121,6 @@ recipes:
           coordinate: lon
       # scfg refers to its standard error scfg_unc and its grid mapping
       # spatial_ref, so they are kept.
-      - id: esa_cci.select_variables
-        options:
-          variables: [scfg]
       - id: woodpecker.rename_variables
         options:
           mapping:
@@ -133,6 +135,11 @@ recipes:
         - "*ESACCI-L3C_SNOW-SWE-MERGED-*-fv2.0_kr*"
         - "*esacci.SNOW.day.L3C.SWE.multi-sensor.multi-platform.MERGED.*.r1"
     steps:
+      - id: esa_cci.fix_variable_references
+      - &select_swe
+        id: esa_cci.select_variables
+        options:
+          variables: [swe]
       - id: esa_cci.remove_packing
       - id: esa_cci.remove_range_attributes
       - id: esa_cci.remove_xcube_cci_odp_attributes
@@ -181,10 +188,6 @@ recipes:
           data_types:
             swe: float32
       - *normalize_longitude
-      - &select_swe
-        id: esa_cci.select_variables
-        options:
-          variables: [swe]
       - &rename_swe
         id: woodpecker.rename_variables
         options:
@@ -192,7 +195,7 @@ recipes:
             snw: [swe]
 
   # The zarr store has no grid mapping variable, which the variables refer
-  # to.
+  # to, so esa_cci.fix_variable_references removes those references.
   - id: esa_cci.snow_snw_zarr
     description: >-
       Prepare the snow water equivalent (swe) of the ESA CCI daily snow
@@ -201,6 +204,8 @@ recipes:
       path_patterns:
         - "*ESACCI-L3C_SNOW-SWE-*-fv*.zarr"
     steps:
+      - id: esa_cci.fix_variable_references
+      - *select_swe
       - id: esa_cci.remove_packing
       - id: esa_cci.remove_range_attributes
       - id: esa_cci.remove_xcube_cci_odp_attributes
@@ -213,8 +218,6 @@ recipes:
       - id: esa_cci.remove_attributes
         options:
           attributes:
-            swe: [grid_mapping]
-            swe_std: [grid_mapping]
             lat_bnds: *bounds
             lon_bnds: *bounds
             time_bnds: *bounds
@@ -224,5 +227,4 @@ recipes:
       - *set_time_units
       - *set_swe_data_types
       - *normalize_longitude
-      - *select_swe
       - *rename_swe

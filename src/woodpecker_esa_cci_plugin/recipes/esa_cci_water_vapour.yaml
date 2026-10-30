@@ -14,6 +14,20 @@ recipes:
       # Steps run in the order listed here. The variables are renamed last,
       # so all steps use the original variable names. Woodpecker allows each
       # fix only once per recipe.
+      # Select the variables first, so the other steps only process those.
+      # tcwv refers to the variables to keep with it: its grid mapping, and
+      # the uncertainties, the standard deviation and the number of
+      # retrievals.
+      - id: esa_cci.fix_variable_references
+        options:
+          references:
+            tcwv: &tcwv_references
+              grid_mapping: crs
+              ancillary_variables: stdv num_obs tcwv_err tcwv_ran
+      - &select_variables
+        id: esa_cci.select_variables
+        options:
+          variables: [tcwv]
       # Packing and the range attributes become invalid when the values
       # change, so remove them first. The time encoding is kept.
       - id: esa_cci.remove_packing
@@ -28,11 +42,6 @@ recipes:
               standard_name: atmosphere_mass_content_of_water_vapor
               long_name: Water Vapor Path
               cell_methods: "area: time: mean"
-              # Keeps crs when selecting variables.
-              grid_mapping: crs
-              # Keeps the uncertainties, the standard deviation and the
-              # number of retrievals when selecting variables.
-              ancillary_variables: stdv num_obs tcwv_err tcwv_ran
             # The monthly values are the means of the daily values, except
             # num_obs, which is their sum, as described in the Product User
             # Guide (D4.3, issue 2.2) and checked against the daily data.
@@ -143,10 +152,6 @@ recipes:
         id: esa_cci.normalize_longitude
         options:
           coordinate: lon
-      - &select_variables
-        id: esa_cci.select_variables
-        options:
-          variables: [tcwv]
       - &rename_variables
         id: woodpecker.rename_variables
         options:
@@ -160,6 +165,11 @@ recipes:
         - "*ESACCI-WATERVAPOUR-L3C-TCWV-meris-*-20020701-20171231-fv3.2-kr*"
         - "*esacci.WATERVAPOUR.day.L3S.TCWV.multi-sensor.multi-platform.TCWV_land_*.3-2.r1"
     steps:
+      - id: esa_cci.fix_variable_references
+        options:
+          references:
+            tcwv: *tcwv_references
+      - *select_variables
       - id: esa_cci.remove_packing
       - id: esa_cci.remove_range_attributes
       - id: esa_cci.remove_xcube_cci_odp_attributes
@@ -204,7 +214,6 @@ recipes:
       - *grid_mapping_from_wkt
       - id: woodpecker.ensure_latitude_is_increasing
       - *normalize_longitude
-      - *select_variables
       - *rename_variables
 
   # Version 4.2 has no num_obs variable, but a variable with the number of
@@ -215,16 +224,21 @@ recipes:
       path_patterns:
         - "*esacci.WATERVAPOUR.mon.L3S.TCWV.multi-sensor.multi-platform.TCWV_land_*.4-2.r1"
     steps:
+      - id: esa_cci.fix_variable_references
+        options:
+          references:
+            tcwv: &tcwv_v4_references
+              grid_mapping: crs
+              # v4.2 has no num_obs.
+              ancillary_variables: stdv tcwv_err tcwv_ran
+      - *select_variables
       - id: esa_cci.remove_packing
       - id: esa_cci.remove_range_attributes
       - id: esa_cci.remove_xcube_cci_odp_attributes
       - id: esa_cci.set_attributes
         options:
           attributes:
-            tcwv: &tcwv_v4_attributes
-              <<: *tcwv_attributes
-              # It refers to num_obs, which does not exist.
-              ancillary_variables: stdv tcwv_err tcwv_ran
+            tcwv: *tcwv_attributes
             stdv: *stdv_attributes
             tcwv_err: *tcwv_err_attributes
             tcwv_ran: *tcwv_ran_attributes
@@ -245,7 +259,6 @@ recipes:
       - *grid_mapping_from_wkt
       - id: woodpecker.ensure_latitude_is_increasing
       - *normalize_longitude
-      - *select_variables
       - *rename_variables
 
   - id: esa_cci.water_vapour_v4_daily
@@ -254,13 +267,18 @@ recipes:
       path_patterns:
         - "*esacci.WATERVAPOUR.day.L3S.TCWV.multi-sensor.multi-platform.TCWV_land_*.4-2.r1"
     steps:
+      - id: esa_cci.fix_variable_references
+        options:
+          references:
+            tcwv: *tcwv_v4_references
+      - *select_variables
       - id: esa_cci.remove_packing
       - id: esa_cci.remove_range_attributes
       - id: esa_cci.remove_xcube_cci_odp_attributes
       - id: esa_cci.set_attributes
         options:
           attributes:
-            tcwv: *tcwv_v4_attributes
+            tcwv: *tcwv_attributes
             stdv: *daily_stdv_attributes
             tcwv_err: *daily_tcwv_err_attributes
             tcwv_ran: *daily_tcwv_ran_attributes
@@ -283,5 +301,4 @@ recipes:
       - *grid_mapping_from_wkt
       - id: woodpecker.ensure_latitude_is_increasing
       - *normalize_longitude
-      - *select_variables
       - *rename_variables

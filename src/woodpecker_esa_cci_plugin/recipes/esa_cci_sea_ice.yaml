@@ -14,6 +14,20 @@ recipes:
       # Steps run in the order listed here. The variables are renamed last,
       # so all steps use the original variable names. Woodpecker allows each
       # fix only once per recipe.
+      # Select the variables first, so the other steps only process those.
+      # ice_conc refers to the variables to keep with it: its standard
+      # error, and its grid mapping. Without the status_flag, a bit mask
+      # that the Open Data Portal store gives as floating point numbers,
+      # which CF does not allow for flags. Like the ESMValTool CMORizer,
+      # only the concentration and its uncertainty are kept.
+      - id: esa_cci.fix_variable_references
+        options:
+          references:
+            ice_conc:
+              ancillary_variables: total_standard_uncertainty
+      - id: esa_cci.select_variables
+        options:
+          variables: [ice_conc]
       # Packing and the range attributes become invalid when the values
       # change, so remove them first. The time encoding is kept.
       - id: esa_cci.remove_packing
@@ -51,11 +65,6 @@ recipes:
             ice_conc:
               long_name: Sea-Ice Area Percentage (Ocean Grid)
               cell_methods: "area: time: mean"
-              # Without the status_flag, a bit mask that the Open Data
-              # Portal store gives as floating point numbers, which CF does
-              # not allow for flags. Like the ESMValTool CMORizer, only the
-              # concentration and its uncertainty are kept.
-              ancillary_variables: total_standard_uncertainty
             time:
               # xarray decodes the times to numpy datetime64 or cftime,
               # which do not count leap seconds. Times that are not decoded
@@ -102,11 +111,6 @@ recipes:
       - id: esa_cci.normalize_longitude
         options:
           coordinate: lon
-      # ice_conc refers to its standard error total_standard_uncertainty and
-      # its grid mapping, so they are kept.
-      - id: esa_cci.select_variables
-        options:
-          variables: [ice_conc]
       - id: woodpecker.rename_variables
         options:
           mapping:
