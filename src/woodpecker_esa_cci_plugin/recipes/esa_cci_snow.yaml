@@ -1,0 +1,230 @@
+# Daily snow cover fraction on the ground (SCFG) from the merged AVHRR
+# product, v2.0, and snow water equivalent (SWE) from the merged passive
+# microwave product, all versions. Steps with options that are the same in
+# all recipes are defined in the first recipe, and reused in the others with
+# YAML aliases (*name).
+recipes:
+  - id: esa_cci.snow_snc
+    description: >-
+      Prepare the snow cover fraction on the ground (scfg) of the ESA CCI
+      daily merged AVHRR snow datasets, v2.0, as the CMIP7 variable snc
+    match:
+      path_patterns:
+        - "*ESACCI-L3C_SNOW-SCFG-AVHRR_MERGED-*-fv2.0_kr*"
+        - "*esacci.SNOW.day.L3C.SCFG.multi-sensor.multi-platform.AVHRR_MERGED.2-0.r1"
+    steps:
+      # Steps run in the order listed here. The variables are renamed last,
+      # so all steps use the original variable names. Woodpecker allows each
+      # fix only once per recipe.
+      # Select the variables first, so the other steps only process those.
+      - id: esa_cci.fix_variable_references
+      - id: esa_cci.select_variables
+        options:
+          variables: [scfg]
+      # Packing and the range attributes become invalid when the values
+      # change, so remove them first. The time encoding is kept.
+      - id: esa_cci.remove_packing
+      - id: esa_cci.remove_range_attributes
+      # Attributes that the Open Data Portal store adds to describe the
+      # original files.
+      - id: esa_cci.remove_xcube_cci_odp_attributes
+      # The data has flags from 205 for clouds, night, water, permanent snow
+      # and ice and missing satellite data, and 253, which is not listed.
+      # The ESMValTool CMORizer masks them all, also permanent snow and ice.
+      # The Open Data Portal store gives the flag values as signed integers,
+      # from -51, so they are found by the range of the percentages.
+      - id: esa_cci.mask_flag_values
+        options:
+          variables:
+            scfg: &percentage {valid_max: 100}
+            scfg_unc: *percentage
+      # The Kerchunk store has the time points at the start of each day and
+      # no time bounds.
+      - &center_time
+        id: esa_cci.center_time
+        options:
+          coordinate: time
+          frequency: day
+      # The Kerchunk store leaves out the days without data, which the Open
+      # Data Portal store has with missing values.
+      - &fill_time_gaps
+        id: esa_cci.fill_time_gaps
+        options:
+          coordinate: time
+          frequency: day
+      - id: esa_cci.set_attributes
+        options:
+          attributes:
+            scfg:
+              long_name: Snow Area Percentage
+              cell_methods: &land_mean "area: mean where land time: mean"
+            time: &time_attributes
+              # xarray decodes the times to numpy datetime64 or cftime,
+              # which do not count leap seconds. Times that are not decoded
+              # are converted with them by esa_cci.set_time_units.
+              units_metadata: "leap_seconds: none"
+              # Required by CMIP7 for the coordinates.
+              axis: T
+      - &remove_attributes
+        id: esa_cci.remove_attributes
+        options:
+          attributes:
+            # The WKT in a GDAL attribute, which the Open Data Portal store
+            # escapes, and the GDAL GeoTransform, which is wrong after
+            # normalizing the longitude. The CF attributes are there.
+            spatial_ref: [spatial_ref, GeoTransform]
+            # Bounds variables inherit the standard_name and long_name of
+            # their coordinate, and CF recommends leaving them out. The Open
+            # Data Portal store sets the invalid standard_name time_bnds.
+            lat_bnds: &bounds [standard_name, long_name, comment]
+            lon_bnds: *bounds
+            time_bnds: *bounds
+      - id: esa_cci.set_global_attributes
+        options:
+          attributes:
+            <<: &global_attributes
+              Conventions: CF-1.11
+              frequency: day
+              realm: landIce
+            # The CMIP7 variable, after renaming.
+            variable_id: snc
+            branded_variable: snc_tavg-u-hxy-lnd
+      - &remove_global_attributes
+        id: esa_cci.remove_global_attributes
+        options:
+          # Empty in the Kerchunk store.
+          attributes:
+            [date_created, id, keywords, platform, sensor, source, tracking_id]
+      - &set_time_units
+        id: esa_cci.set_time_units
+        options:
+          coordinate: time
+          units: days since 1850-01-01
+          # xarray decodes the times to numpy datetime64, which uses the
+          # proleptic Gregorian calendar.
+          calendar: proleptic_gregorian
+      # The same values, with the symbol that CMIP7 uses.
+      - id: esa_cci.convert_units
+        options:
+          units:
+            scfg: "%"
+            scfg_unc: "%"
+      # CMIP7 stores data in single precision, and coordinates in double
+      # precision.
+      - id: esa_cci.set_data_types
+        options:
+          data_types:
+            scfg: float32
+      - &normalize_longitude
+        id: esa_cci.normalize_longitude
+        options:
+          coordinate: lon
+      # scfg refers to its standard error scfg_unc and its grid mapping
+      # spatial_ref, so they are kept.
+      - id: woodpecker.rename_variables
+        options:
+          mapping:
+            snc: [scfg]
+
+  - id: esa_cci.snow_snw
+    description: >-
+      Prepare the snow water equivalent (swe) of the ESA CCI daily merged
+      snow water equivalent datasets as the CMIP7 variable snw
+    match:
+      path_patterns:
+        - "*ESACCI-L3C_SNOW-SWE-MERGED-*-fv2.0_kr*"
+        - "*esacci.SNOW.day.L3C.SWE.multi-sensor.multi-platform.MERGED.*.r1"
+    steps:
+      - id: esa_cci.fix_variable_references
+      - &select_swe
+        id: esa_cci.select_variables
+        options:
+          variables: [swe]
+      - id: esa_cci.remove_packing
+      - id: esa_cci.remove_range_attributes
+      - id: esa_cci.remove_xcube_cci_odp_attributes
+      # The flags are negative, from -30 for glaciers, mountains, water and
+      # missing data, and 0 for no snow, which is a valid amount of snow.
+      - &mask_swe_flags
+        id: esa_cci.mask_flag_values
+        options:
+          variables:
+            swe: &amount {valid_min: 0}
+            swe_std: *amount
+      - *center_time
+      # Most days of the first years and the summers have no data in the
+      # Kerchunk and zarr stores.
+      - *fill_time_gaps
+      - id: esa_cci.set_attributes
+        options:
+          attributes: &swe_attributes
+            swe:
+              standard_name: surface_snow_amount
+              long_name: Surface Snow Amount
+              # A depth of water of 1 mm is a mass of 1 kg per m2.
+              units: kg m-2
+              cell_methods: *land_mean
+            # The estimated standard deviation of the error of swe.
+            swe_std:
+              standard_name: surface_snow_amount standard_error
+              units: kg m-2
+            time: *time_attributes
+            lat:
+              units: degrees_north
+            lon:
+              units: degrees_east
+      - *remove_attributes
+      - id: esa_cci.set_global_attributes
+        options:
+          attributes: &swe_global_attributes
+            <<: *global_attributes
+            variable_id: snw
+            branded_variable: snw_tavg-u-hxy-lnd
+      - *remove_global_attributes
+      - *set_time_units
+      - &set_swe_data_types
+        id: esa_cci.set_data_types
+        options:
+          data_types:
+            swe: float32
+      - *normalize_longitude
+      - &rename_swe
+        id: woodpecker.rename_variables
+        options:
+          mapping:
+            snw: [swe]
+
+  # The zarr store has no grid mapping variable, which the variables refer
+  # to, so esa_cci.fix_variable_references removes those references.
+  - id: esa_cci.snow_snw_zarr
+    description: >-
+      Prepare the snow water equivalent (swe) of the ESA CCI daily snow
+      water equivalent datasets in the zarr store as the CMIP7 variable snw
+    match:
+      path_patterns:
+        - "*ESACCI-L3C_SNOW-SWE-*-fv*.zarr"
+    steps:
+      - id: esa_cci.fix_variable_references
+      - *select_swe
+      - id: esa_cci.remove_packing
+      - id: esa_cci.remove_range_attributes
+      - id: esa_cci.remove_xcube_cci_odp_attributes
+      - *mask_swe_flags
+      - *center_time
+      - *fill_time_gaps
+      - id: esa_cci.set_attributes
+        options:
+          attributes: *swe_attributes
+      - id: esa_cci.remove_attributes
+        options:
+          attributes:
+            lat_bnds: *bounds
+            lon_bnds: *bounds
+            time_bnds: *bounds
+      - id: esa_cci.set_global_attributes
+        options:
+          attributes: *swe_global_attributes
+      - *set_time_units
+      - *set_swe_data_types
+      - *normalize_longitude
+      - *rename_swe

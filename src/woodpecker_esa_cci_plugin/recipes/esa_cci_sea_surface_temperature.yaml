@@ -17,6 +17,18 @@ recipes:
       # Steps run in the order listed here. The variables are renamed last,
       # so all steps use the original variable names. Woodpecker allows each
       # fix only once per recipe.
+      # Select the variables first, so the other steps only process those.
+      # analysed_sst refers to the variables to keep with it: the spread and
+      # the size of the ensemble.
+      - id: esa_cci.fix_variable_references
+        options:
+          references:
+            analysed_sst:
+              ancillary_variables: standard_deviation analysis_number
+      - &select_variables
+        id: esa_cci.select_variables
+        options:
+          variables: [analysed_sst]
       # Packing and the range attributes become invalid when the values
       # change, so remove them first. The time encoding is kept.
       - id: esa_cci.remove_packing
@@ -46,9 +58,6 @@ recipes:
               cell_methods: "area: mean where sea time: mean"
               # The temperature is not a temperature difference.
               units_metadata: "temperature: on_scale"
-              # Keeps the spread and the size of the ensemble when selecting
-              # variables.
-              ancillary_variables: standard_deviation analysis_number
             # The spread of the ensemble of analyses. It indicates their
             # uncertainty, but is not an estimate of the error, so it has no
             # CF standard name.
@@ -129,10 +138,6 @@ recipes:
         id: esa_cci.normalize_longitude
         options:
           coordinate: lon
-      - &select_variables
-        id: esa_cci.select_variables
-        options:
-          variables: [analysed_sst]
       - &rename_variables
         id: woodpecker.rename_variables
         options:
@@ -149,6 +154,12 @@ recipes:
       path_patterns:
         - "*esacci.SST.day.L4.SSTdepth.multi-sensor.multi-platform.OSTIA.1-1.r1"
     steps:
+      - id: esa_cci.fix_variable_references
+        options:
+          references:
+            analysed_sst:
+              ancillary_variables: analysis_error
+      - *select_variables
       - id: esa_cci.remove_packing
       - id: esa_cci.remove_range_attributes
       - id: esa_cci.remove_xcube_cci_odp_attributes
@@ -157,9 +168,7 @@ recipes:
       - id: esa_cci.set_attributes
         options:
           attributes:
-            analysed_sst:
-              <<: *sst_attributes
-              ancillary_variables: analysis_error
+            analysed_sst: *sst_attributes
             # The estimated error standard deviation of analysed_sst.
             analysis_error: &sst_uncertainty_attributes
               <<: *sst_difference_attributes
@@ -180,7 +189,6 @@ recipes:
             analysis_error: float32
       - *set_time_units
       - *normalize_longitude
-      - *select_variables
       - *rename_variables
 
   - id: esa_cci.sea_surface_temperature_ostia_v2
@@ -191,6 +199,12 @@ recipes:
       path_patterns:
         - "*esacci.SST.day.L4.SSTdepth.multi-sensor.multi-platform.OSTIA.2-1.sst"
     steps:
+      - id: esa_cci.fix_variable_references
+        options:
+          references:
+            analysed_sst:
+              ancillary_variables: analysed_sst_uncertainty
+      - *select_variables
       - id: esa_cci.remove_packing
       - id: esa_cci.remove_range_attributes
       - id: esa_cci.remove_xcube_cci_odp_attributes
@@ -199,9 +213,7 @@ recipes:
       - id: esa_cci.set_attributes
         options:
           attributes:
-            analysed_sst:
-              <<: *sst_attributes
-              ancillary_variables: analysed_sst_uncertainty
+            analysed_sst: *sst_attributes
             analysed_sst_uncertainty: *sst_uncertainty_attributes
             time: *time_attributes
       - id: esa_cci.remove_attributes
@@ -219,5 +231,4 @@ recipes:
             analysed_sst_uncertainty: float32
       - *set_time_units
       - *normalize_longitude
-      - *select_variables
       - *rename_variables

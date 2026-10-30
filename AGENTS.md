@@ -28,9 +28,11 @@ pixi run test   # pytest, with coverage
 pixi run lint   # pre-commit: ruff, mypy and basic checks
 ```
 
-Run both before considering a change done. Ruff enables all rules with a
-line length of 79, and mypy runs in strict mode on `src` and `tests`. After
-changing the dependencies in `pyproject.toml`, run `pixi lock`.
+Run both before considering a change done. pre-commit only checks the files
+that git tracks, so `git add` new files before running the lint. Ruff
+enables all rules with a line length of 79, and mypy runs in strict mode on
+`src` and `tests`. After changing the dependencies in `pyproject.toml`, run
+`pixi lock`.
 
 ## Code layout
 
@@ -47,7 +49,10 @@ changing the dependencies in `pyproject.toml`, run `pixi lock`.
   Woodpecker selects a recipe by matching its `path_patterns` against the
   input name. Steps run in the order listed, each fix at most once per
   recipe, and variables are renamed last so that all other steps use the
-  original names.
+  original names. The recipes select the variables first, with
+  `esa_cci.fix_variable_references` and `esa_cci.select_variables`, so the
+  other steps only process the variables that are kept, and the integration
+  tests can open only those.
 
 ## Uncertainty variables
 
@@ -55,8 +60,9 @@ When adding a dataset, try to keep the variables that describe the
 uncertainty of the selected variable, such as standard errors, retrieval
 uncertainties, standard deviations and the number of observations, instead
 of letting `esa_cci.select_variables` drop them. List them in the
-`ancillary_variables` attribute of the selected variable: then they are
-kept, and iris loads them as ancillary variables of the same cube. Check the
+`ancillary_variables` reference of the selected variable in
+`esa_cci.fix_variable_references`: then they are kept, and iris loads them
+as ancillary variables of the same cube. Check the
 product user guide for what each one means, and give it a CF standard name
 where one fits, e.g. `<standard_name> standard_error` for an uncertainty of
 `<standard_name>`, or `number_of_observations` for a count. Give them the
@@ -82,8 +88,10 @@ degC with `esa_cci.set_attributes` instead.
 The integration tests are skipped in the `default` environment, because
 their dependencies are not installed there. Make sure the `online` and
 `xcube` environments are installed, and after a change that affects a fix or
-recipe that the integration tests use, run them in both. They take about 1
-minute in `online` and 3 minutes in `xcube`, and need up to 3 GB of memory:
+recipe that the integration tests use, run them in both. They take about 5
+minutes in `online` and 18 minutes in `xcube`, and need up to 6 GB of
+memory. Select the tests of the affected datasets with `-k` while working
+on a change, and run all of them before committing:
 
 ```bash
 pixi run -e online pytest tests/integration
@@ -91,8 +99,10 @@ pixi run -e xcube pytest tests/integration
 ```
 
 Each environment skips the tests that need the other one, and `online`
-skips the Open Data Portal datasets, which only xcube-cci can open. Check
-that the tests you expect to run pass and are not skipped.
+skips the Open Data Portal datasets, which only xcube-cci can open, while
+`xcube` skips the recipe output tests of the zarr and Kerchunk datasets,
+which `online` runs with all checkers. Check that the tests you expect to
+run pass and are not skipped.
 
 The integration tests only use the first few time steps of the Kerchunk
 and Open Data Portal datasets. After adding a dataset or changing a fix or

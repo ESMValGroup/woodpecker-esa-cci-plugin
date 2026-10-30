@@ -118,3 +118,17 @@ def test_geometry_references_are_kept(dataset: xr.Dataset) -> None:
 
     woodpecker.apply(dataset, fixes=FIX_ID, dry_run=False, options=OPTIONS)
     assert {"geometry_container", *names} <= set(dataset.data_vars)
+
+
+def test_unused_coordinates_are_dropped(dataset: xr.Dataset) -> None:
+    # A histogram of another variable, with coordinates on its own dimension.
+    dataset["hist"] = xr.DataArray([0, 1], dims="bin")
+    dataset = dataset.assign_coords(
+        bin=("bin", [0.5, 1.5]),
+        bin_border=("bin_border", [0.0, 1.0, 2.0]),
+    )
+
+    woodpecker.apply(dataset, fixes=FIX_ID, dry_run=False, options=OPTIONS)
+    assert "hist" not in dataset
+    assert not {"bin", "bin_border"} & set(dataset.variables)
+    assert {"time", "lat", "lon"} <= set(dataset.coords)

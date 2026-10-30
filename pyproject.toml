@@ -55,6 +55,12 @@ types-pyyaml = "*"
 test = "pytest"
 lint = "pre-commit run --all-files"
 
+# Each dask thread gets its own glibc malloc arena, from which freed memory
+# is rarely returned, so a long test run grows by GBs. Two arenas keep the
+# integration tests within the 3 GB they need.
+[tool.pixi.feature.dev.activation.env]
+MALLOC_ARENA_MAX = "2"
+
 [tool.pixi.feature.xcube.dependencies]
 xcube = ">=1.13"
 xcube-cci = ">=0.14"

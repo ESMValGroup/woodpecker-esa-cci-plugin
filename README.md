@@ -69,9 +69,85 @@ pass to woodpecker.
     `esacci.SST.day.L4.SSTskin.Unspecified.Unspecified.GMPE.2-0.r1`,
     `esacci.SST.day.L4.SSTdepth.multi-sensor.multi-platform.OSTIA.1-1.r1`
     and `esacci.SST.day.L4.SSTdepth.multi-sensor.multi-platform.OSTIA.2-1.sst`
+- Sea surface salinity, monthly level 4 analyses, as the CMIP7 variable
+  `sos`, from the 30-day means centred on the 15th of each month. The
+  datasets also have the overlapping 30-day means centred on the 1st,
+  which the recipe removes:
+  - Kerchunk store, v2.31, v3.21, v4.41 and v5.5:
+    `ESACCI-SEASURFACESALINITY-L4-SSS-{,GLOBAL-}MERGED_OI_Monthly_CENTRED_15Day_*`
+  - Open Data Portal store, the same versions:
+    `esacci.SEASURFACESALINITY.15-days.L4.SSS.multi-sensor.multi-platform.{,GLOBAL-}MERGED_OI_Monthly_CENTRED_15Day_*.r1`
+- Cloud, monthly AVHRR v3.0, as the CMIP7 variables `clt`, `lwp`, `clivi`,
+  the top of atmosphere fluxes `rlut`, `rlutcs`, `rsut`, `rsutcs` and
+  `rsdt`, and the surface fluxes `rlus`, `rsus`, `rsuscs`, `rlds`,
+  `rldscs`, `rsds` and `rsdscs`:
+  - zarr store, `clt` only:
+    `ESACCI-L3C_CLOUD-CLD_PRODUCTS-AVHRR_NOAA-1982-2016-fv3.0.zarr`
+  - Kerchunk store, the morning and afternoon orbits:
+    `ESACCI-L3C_CLOUD-CLD_PRODUCTS-AVHRR_{AM,PM}-*-fv3.0-kr1.1`
+  - Open Data Portal store, the same:
+    `esacci.CLOUD.mon.L3C.CLD_PRODUCTS.multi-sensor.multi-platform.AVHRR-{AM,PM}.3-0.r1`
+- Aerosol, daily and monthly SU v4.3, as the CMIP7 variables `od550aer`,
+  `od550lt1aer` and `abs550aer`:
+  - Open Data Portal store, ATSR-2 and AATSR:
+    `esacci.AEROSOL.{day,mon}.L3C.AER_PRODUCTS.{ATSR-2.ERS-2,AATSR.Envisat}.SU.4-3.r1`
+- Snow, daily, as the CMIP7 variables `snc`, from the snow cover fraction
+  on the ground, and `snw`, from the snow water equivalent:
+  - zarr store, `snw` v1.0 and v2.0: `ESACCI-L3C_SNOW-SWE-*-fv*.zarr`
+  - Kerchunk store, `snc` and `snw` v2.0:
+    `ESACCI-L3C_SNOW-SCFG-AVHRR_MERGED-19820101-20181230-fv2.0_kr1.0` and
+    `ESACCI-L3C_SNOW-SWE-MERGED-19790102-20200524-fv2.0_kr1.2`
+  - Open Data Portal store, `snc` v2.0 and `snw` v2.0, v3.1 and v4.0:
+    `esacci.SNOW.day.L3C.SCFG.multi-sensor.multi-platform.AVHRR_MERGED.2-0.r1`
+    and `esacci.SNOW.day.L3C.SWE.multi-sensor.multi-platform.MERGED.*.r1`
+- Sea ice concentration, daily SSM/I and SSMIS v3.0 at 12.5 km, as the
+  CMIP7 variable `siconc`, for the northern and the southern hemisphere,
+  on the polar EASE-Grid 2.0 (x/y) with 2-D latitudes and longitudes:
+  - Open Data Portal store:
+    `esacci.SEAICE.day.L4.SICONC.multi-sensor.multi-platform.RE_SSMI_12-5kmEASE2-{NH,SH}.3-0.{NH,SH}`
+- Ozone, as the CMIP7 variables `toz`, the total column, and `o3`, the
+  mole fraction:
+  - Open Data Portal store, `toz` from the daily merged total column
+    product and the monthly merged nadir profile product:
+    `esacci.OZONE.day.L3S.TC.multi-sensor.multi-platform.MERGED.fv0100.r1`
+    and `esacci.OZONE.mon.L3.NP.multi-sensor.multi-platform.MERGED.fv0002.r1`
+  - Open Data Portal store, `o3` as monthly zonal means in 10° latitude
+    bands on the 39 CMIP7 pressure levels of `plev39` (`o3_tavg-p39-hy-air`),
+    from the limb profile products of GOMOS, MIPAS, OSIRIS, SCIAMACHY and
+    SMR: `esacci.OZONE.mon.L3.LP.*.v0001.r1`. They cover the levels from
+    the upper troposphere up, so the lower levels are missing values.
+- Ocean colour, daily and monthly merged v6.0 on the 4 km geographic grid,
+  as the CMIP7 variable `chl` at the sea surface (`chl_tavg-ols-hxy-sea`),
+  from the chlorophyll-a concentration `chlor_a`:
+  - zarr store, the products with all ocean colour variables:
+    `ESACCI-OC-L3S-OC_PRODUCTS-MERGED-{1D_DAILY,1M_MONTHLY}_4km_GEO_PML_OCx_QAA-1997-2022-fv6.0.zarr`
+  - Kerchunk store, monthly:
+    `ESACCI-OC-L3S-CHLOR_A-MERGED-1M_MONTHLY_4km_GEO_PML_OCx-199709-202212-fv6.0-kr1.1`
+  - Open Data Portal store, the chlorophyll-a and all-variable products:
+    `esacci.OC.{day,mon}.L3S.{CHLOR_A,OC_PRODUCTS}.multi-sensor.multi-platform.MERGED.6-0.geographic`
 
-The recipes keep the uncertainty information as ancillary variables of
-`prw` and `tos`, which iris loads as ancillary variables of the cube:
+The cloud and aerosol datasets provide several variables, each from its own
+recipe, named `esa_cci.<essential climate variable>_<variable>`, e.g.
+`esa_cci.cloud_clt`, with a `_daily` suffix for the daily aerosol
+datasets. Woodpecker raises an error when several recipes match, so pass
+the recipe id:
+
+```python
+woodpecker.recipe.apply(
+    XarrayInput(payload=dataset, name=data_id),
+    woodpecker.recipe.catalog(),
+    recipe_id="esa_cci.cloud_clt",
+    dry_run=False,
+)
+```
+
+Each recipe keeps only its own variable, so open the dataset again for each
+variable. Datasets in which some calendar months or days have no data,
+such as the AVHRR afternoon orbit cloud dataset, get those time steps, with
+missing values, as CMIP7 requires a time coordinate without gaps.
+
+The recipes keep the uncertainty information as ancillary variables, which
+iris loads as ancillary variables of the cube:
 
 - Water vapour: `tcwv_err`, the mean of the retrieval uncertainties, as the
   standard error of `prw`; `tcwv_ran`, their root mean square; `stdv`, the
@@ -81,6 +157,34 @@ The recipes keep the uncertainty information as ancillary variables of
   in OSTIA 1-1 and `analysed_sst_uncertainty` in OSTIA 2-1, and for GMPE
   the spread and the size of the ensemble of analyses, `standard_deviation`
   and `analysis_number`.
+- Sea surface salinity: `sss_random_error`, the standard error of `sos`,
+  and `total_nobs`, the number of observations.
+- Cloud fraction: `cfc_unc`, the mean of the pixel uncertainties, as the
+  standard error of `clt`; `cfc_prop_unc`, the uncertainty propagated
+  from the pixels, except in the zarr store; `cfc_std`, the standard
+  deviation over the month; and `nobs`, the number of observations. The
+  other cloud variables have no uncertainty variables.
+- Aerosol optical depth: `AOD550_uncertainty`, the propagated uncertainty
+  including sampling, as the standard error of `od550aer`;
+  `AOD550_uncertainty_mean`, the mean of the pixel uncertainties; the
+  standard deviations `AOD550_sdev`, `FM_AOD550_sdev` and `AAOD550_sdev`
+  of `od550aer`, `od550lt1aer` and `abs550aer`; and `pixel_count`, the
+  number of observations.
+- Snow: `scfg_unc` and `swe_std`, the standard errors of `snc` and `snw`.
+- Sea ice concentration: `total_standard_uncertainty`, the standard error
+  of `siconc`. The `status_flag` is not kept.
+- Total ozone column: the standard error, standard deviation and number of
+  observations of `toz` from the total column product, and `O3e_du_tot`,
+  the standard error of `toz` from the nadir profile product.
+- Ozone zonal means: `standard_error_of_the_mean`, the standard error of
+  `o3`; `mean_uncertainty_estimate`, the mean of the uncertainties of the
+  profiles; and `sample_standard_deviation`, the standard deviation of the
+  profiles. The datasets give them in percent of `o3`, and the recipe
+  converts them to the units of `o3`.
+- Ocean colour: `chlor_a_log10_rmsd` and `chlor_a_log10_bias`, the
+  root-mean-square difference and bias of log10 of the chlorophyll-a
+  concentration, which are dimensionless, and the number of observations,
+  `total_nobs` in the daily and `total_nobs_sum` in the monthly products.
 
 The 0.05° daily datasets have storage chunks of a few MB, so with those as
 dask chunks, each recipe step adds hundreds of thousands of tasks to the
@@ -97,6 +201,24 @@ data_id = (
     "TCWV_land_005deg.3-2.r1"
 )
 dataset = new_data_store("cciodp").open_data(data_id).chunk("auto")
+```
+
+The ocean colour `OC_PRODUCTS` datasets contain about 90 variables, and the
+recipes keep only `chlor_a` and its uncertainties. Opening all variables of
+the daily dataset from the Open Data Portal store takes more than 3 GB, so
+pass the variables to keep:
+
+```python
+dataset = new_data_store("cciodp").open_data(
+    "esacci.OC.day.L3S.OC_PRODUCTS.multi-sensor.multi-platform.MERGED."
+    "6-0.geographic",
+    variable_names=[
+        "chlor_a",
+        "chlor_a_log10_rmsd",
+        "chlor_a_log10_bias",
+        "total_nobs",
+    ],
+)
 ```
 
 For the CMIP7 variables that other ESA CCI datasets could provide, see

@@ -1,0 +1,243 @@
+# Chlorophyll-a from the merged ocean colour products, v6.0, on the 4 km
+# geographic grid. The CHLOR_A products contain chlor_a and its
+# uncertainties, and the OC_PRODUCTS products the same and all other
+# ocean colour variables, so the same recipe applies to both. Not the
+# products on the sinusoidal grid, which would need regridding, nor the
+# 5-day, 8-day and yearly means, which are not CMIP7 frequencies. Steps with
+# options that are the same in both recipes are defined in the first recipe,
+# and reused in the other with YAML aliases (*name).
+recipes:
+  - id: esa_cci.ocean_colour_chl
+    description: >-
+      Prepare the ESA CCI monthly merged ocean colour chlorophyll-a
+      (chlor_a) on the geographic grid, v6.0, as the CMIP7 variable chl at
+      the sea surface
+    match:
+      path_patterns:
+        - "*ESACCI-OC-L3S-OC_PRODUCTS-MERGED-1M_MONTHLY_4km_GEO_PML_OCx_QAA-*-fv6.0.zarr"
+        - "*ESACCI-OC-L3S-CHLOR_A-MERGED-1M_MONTHLY_4km_GEO_PML_OCx-*-fv6.0-kr*"
+        - "*esacci.OC.mon.L3S.CHLOR_A.multi-sensor.multi-platform.MERGED.6-0.geographic"
+        - "*esacci.OC.mon.L3S.OC_PRODUCTS.multi-sensor.multi-platform.MERGED.6-0.geographic"
+    steps:
+      # Steps run in the order listed here. The variables are renamed last,
+      # so all steps use the original variable names. Woodpecker allows each
+      # fix only once per recipe.
+      # Select the variables first, so the other steps only process those:
+      # the OC_PRODUCTS products contain about 90 variables. chlor_a refers
+      # to the variables to keep with it: the uncertainties and the number
+      # of observations.
+      - id: esa_cci.fix_variable_references
+        options:
+          references:
+            chlor_a:
+              ancillary_variables: >-
+                chlor_a_log10_rmsd chlor_a_log10_bias total_nobs_sum
+      - &select_variables
+        id: esa_cci.select_variables
+        options:
+          variables: [chlor_a]
+      # Packing and the range attributes become invalid when the values
+      # change, so remove them first. The time encoding is kept.
+      - id: esa_cci.remove_packing
+      - id: esa_cci.remove_range_attributes
+      # Attributes that the Open Data Portal store adds to describe the
+      # original files.
+      - id: esa_cci.remove_xcube_cci_odp_attributes
+      - id: esa_cci.set_attributes
+        options:
+          attributes:
+            chlor_a: &chlor_a_attributes
+              # The satellites see the chlorophyll-a in the upper part of
+              # the ocean, about the first optical depth, which is what
+              # models describe with the surface chl of all phytoplankton.
+              standard_name: >-
+                mass_concentration_of_phytoplankton_expressed_as_chlorophyll_in_sea_water
+              long_name: >-
+                Surface Mass Concentration of Total Phytoplankton Expressed
+                as Chlorophyll in Sea Water
+              comment: >-
+                Chlorophyll-a concentration from a blend of the OCI, OCI2,
+                OC2 and OCx algorithms, depending on the optical water
+                class memberships. Less reliable in coastal waters.
+              cell_methods: "area: mean where sea time: mean"
+            # The uncertainties of log10(chlor_a), from the optical water
+            # class memberships and validation against in situ data, so
+            # they are dimensionless and have no CF standard name. The
+            # monthly products give the root mean square of the daily
+            # root-mean-square differences, and the mean of the daily
+            # biases.
+            chlor_a_log10_rmsd: &rmsd_attributes
+              units: "1"
+            chlor_a_log10_bias: &bias_attributes
+              units: "1"
+            # The sum of the daily numbers of observations.
+            total_nobs_sum: &nobs_attributes
+              standard_name: number_of_observations
+              long_name: Number of observations
+              units: "1"
+            time: &time_attributes
+              # xarray decodes the times to numpy datetime64, which does not
+              # count leap seconds.
+              units_metadata: "leap_seconds: none"
+              # Required by CMIP7 for the coordinates, and missing in the
+              # Open Data Portal store.
+              axis: T
+      # The zarr and Kerchunk stores have time points at the start of each
+      # month, except the first, on 4 September 1997, and no time bounds.
+      - id: esa_cci.center_time
+        options:
+          coordinate: time
+          frequency: mon
+      # Before normalizing the longitude, so the bounds are wrapped too.
+      - &add_bounds
+        id: esa_cci.add_bounds
+        options:
+          coordinates: [lat, lon]
+      # CMIP7 describes the surface layer with a string coordinate.
+      - &add_scalar_coordinate
+        id: esa_cci.add_scalar_coordinate
+        options:
+          coordinates:
+            seasurface:
+              value: ocean_surface_layer
+              attributes:
+                long_name: Ocean surface coordinate
+      - &remove_attributes
+        id: esa_cci.remove_attributes
+        options:
+          attributes:
+            # The original units, which are not valid UDUNITS units.
+            chlor_a: [units_nonstandard]
+            # Bounds variables inherit the standard_name and long_name of
+            # their coordinate, and CF recommends leaving them out. The Open
+            # Data Portal store sets the invalid standard_name time_bnds.
+            lat_bnds: &bounds [standard_name, long_name, comment]
+            lon_bnds: *bounds
+            time_bnds: *bounds
+      - id: esa_cci.set_global_attributes
+        options:
+          attributes: &global_attributes
+            Conventions: CF-1.11
+            # The CMIP7 variable, after renaming.
+            variable_id: chl
+            branded_variable: chl_tavg-ols-hxy-sea
+            frequency: mon
+            realm: ocnBgchem
+      - &remove_global_attributes
+        id: esa_cci.remove_global_attributes
+        options:
+          # They describe the last of the original files, which the zarr and
+          # Kerchunk stores combine.
+          attributes:
+            [
+              creation_date,
+              date_created,
+              id,
+              number_of_files_composited,
+              sensors_present,
+              start_date,
+              stop_date,
+              tracking_id,
+            ]
+      - &set_time_units
+        id: esa_cci.set_time_units
+        options:
+          coordinate: time
+          units: days since 1850-01-01
+          # xarray decodes the times to numpy datetime64, which uses the
+          # proleptic Gregorian calendar.
+          calendar: proleptic_gregorian
+      - &convert_units
+        id: esa_cci.convert_units
+        options:
+          units:
+            chlor_a: kg m-3
+      # CMIP7 stores data in single precision, and coordinates in double
+      # precision.
+      - id: esa_cci.set_data_types
+        options:
+          data_types:
+            chlor_a: float32
+            chlor_a_log10_rmsd: float32
+            chlor_a_log10_bias: float32
+            total_nobs_sum: float32
+            lat: float64
+            lon: float64
+            lat_bnds: float64
+            lon_bnds: float64
+      - id: woodpecker.ensure_latitude_is_increasing
+      - &normalize_longitude
+        id: esa_cci.normalize_longitude
+        options:
+          coordinate: lon
+      - &rename_variables
+        id: woodpecker.rename_variables
+        options:
+          mapping:
+            chl: [chlor_a]
+
+  - id: esa_cci.ocean_colour_chl_daily
+    description: >-
+      Prepare the ESA CCI daily merged ocean colour chlorophyll-a (chlor_a)
+      on the geographic grid, v6.0, as the CMIP7 variable chl at the sea
+      surface
+    match:
+      path_patterns:
+        - "*ESACCI-OC-L3S-OC_PRODUCTS-MERGED-1D_DAILY_4km_GEO_PML_OCx_QAA-*-fv6.0.zarr"
+        - "*esacci.OC.day.L3S.CHLOR_A.multi-sensor.multi-platform.MERGED.6-0.geographic"
+        - "*esacci.OC.day.L3S.OC_PRODUCTS.multi-sensor.multi-platform.MERGED.6-0.geographic"
+    steps:
+      - id: esa_cci.fix_variable_references
+        options:
+          references:
+            chlor_a:
+              ancillary_variables: >-
+                chlor_a_log10_rmsd chlor_a_log10_bias total_nobs
+      - *select_variables
+      - id: esa_cci.remove_packing
+      - id: esa_cci.remove_range_attributes
+      - id: esa_cci.remove_xcube_cci_odp_attributes
+      - id: esa_cci.set_attributes
+        options:
+          attributes:
+            chlor_a: *chlor_a_attributes
+            chlor_a_log10_rmsd: *rmsd_attributes
+            chlor_a_log10_bias: *bias_attributes
+            total_nobs: *nobs_attributes
+            time: *time_attributes
+      # The zarr store has time points at the start of each day, and no
+      # time bounds.
+      - id: esa_cci.center_time
+        options:
+          coordinate: time
+          frequency: day
+      # The zarr store leaves out the days without data.
+      - id: esa_cci.fill_time_gaps
+        options:
+          coordinate: time
+          frequency: day
+      - *add_bounds
+      - *add_scalar_coordinate
+      - *remove_attributes
+      - id: esa_cci.set_global_attributes
+        options:
+          attributes:
+            <<: *global_attributes
+            frequency: day
+      - *remove_global_attributes
+      - *set_time_units
+      - *convert_units
+      - id: esa_cci.set_data_types
+        options:
+          data_types:
+            chlor_a: float32
+            chlor_a_log10_rmsd: float32
+            chlor_a_log10_bias: float32
+            total_nobs: float32
+            lat: float64
+            lon: float64
+            lat_bnds: float64
+            lon_bnds: float64
+      - id: woodpecker.ensure_latitude_is_increasing
+      - *normalize_longitude
+      - *rename_variables

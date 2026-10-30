@@ -37,7 +37,14 @@ def test_variable_without_units_raises(tcwv_dataset: xr.Dataset) -> None:
 
 @pytest.mark.parametrize(
     ("units", "factor"),
-    [("kg/m2", 1.0), ("g m-2", 1e-3), ("kg cm-2", 1e4)],
+    # Units with a scaling factor, like the total ozone column in Dobson
+    # units, given as 1E-05 m.
+    [
+        ("kg/m2", 1.0),
+        ("g m-2", 1e-3),
+        ("kg cm-2", 1e4),
+        ("1E-03 kg m-2", 1e-3),
+    ],
 )
 def test_units_are_converted(
     tcwv_dataset: xr.Dataset,

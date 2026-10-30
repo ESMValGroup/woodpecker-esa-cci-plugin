@@ -3,6 +3,7 @@
 from pathlib import Path
 from typing import Any
 
+import numpy as np
 import pytest
 import xarray as xr
 
@@ -12,16 +13,76 @@ netcdf4 = pytest.importorskip("netCDF4")
 suite = pytest.importorskip("compliance_checker.suite")
 
 
+# Messages of the checkers that are not violations. CF allows a standard
+# name in the cell_methods, for a method over a coordinate that the variable
+# does not have, such as "longitude: mean" for zonal means, while the CF
+# checker requires a dimension or coordinate of the variable. The CMIP7
+# checker expects the long_name of the root variable chl, shared by all its
+# branded variables, instead of that of the branded variable
+# chl_tavg-ols-hxy-sea, which the ESMValCore CMIP7 table also has.
+FALSE_POSITIVES = (
+    (
+        "cell_methods name component longitude does not match a dimension, "
+        "area or auxiliary coordinate"
+    ),
+    (
+        "Expected 'Mass Concentration of Total Phytoplankton Expressed as "
+        "Chlorophyll in Sea Water' from registry key 'long_name', got "
+        "'Surface Mass Concentration of Total Phytoplankton Expressed as "
+        "Chlorophyll in Sea Water'"
+    ),
+)
+# The regions of the subsets of the polar grids, with land and sea, as
+# latitude and longitude ranges: Svalbard and the coast of Dronning Maud
+# Land in Antarctica.
+POLAR_REGIONS = {
+    "north": ((76.0, 80.0), (10.0, 20.0)),
+    "south": ((-71.0, -68.0), (0.0, 10.0)),
+}
+
+
+def _polar_subset(dataset: xr.Dataset) -> xr.Dataset:
+    """Return the cells of ``dataset`` around a polar coast.
+
+    The latitudes and longitudes of polar grids are 2-D, so this selects
+    the smallest rectangle of cells that contains the region.
+    """
+    lat = dataset["lat"].to_numpy()
+    lon = dataset["lon"].to_numpy()
+    hemisphere = "north" if np.nanmax(lat) > 0 else "south"
+    (lat_min, lat_max), (lon_min, lon_max) = POLAR_REGIONS[hemisphere]
+    inside = (
+        (lat >= lat_min)
+        & (lat <= lat_max)
+        & (lon >= lon_min)
+        & (lon <= lon_max)
+    )
+    rows, columns = np.nonzero(inside)
+    y, x = dataset["lat"].dims
+    return dataset.isel(
+        {
+            y: slice(rows.min(), rows.max() + 1),
+            x: slice(columns.min(), columns.max() + 1),
+        }
+    )
+
+
 def write_subset(dataset: xr.Dataset, path: Path) -> None:
     """Write a small part of ``dataset`` to the netCDF file ``path``.
 
     The compliance checker only reads netCDF files, so this writes the first
-    time steps around the Dutch coast, to cover both land and sea.
+    time steps around the Dutch coast, or a polar coast for polar grids, to
+    cover both land and sea, or the latitudes of the Netherlands for zonal
+    means.
     """
-    subset = dataset.isel(time=slice(TIME_STEPS)).sel(
-        lat=slice(51.5, 53.0),
-        lon=slice(3.0, 6.0),
-    )
+    subset = dataset.isel(time=slice(TIME_STEPS))
+    if subset["lat"].ndim == 2:
+        subset = _polar_subset(subset)
+    elif "lon" not in subset.dims:
+        # Zonal means, in 10 degree latitude bands.
+        subset = subset.sel(lat=slice(40.0, 60.0))
+    else:
+        subset = subset.sel(lat=slice(51.5, 53.0), lon=slice(3.0, 6.0))
     assert all(size > 1 for size in subset.sizes.values())
     # Coordinates cannot have missing values, but xarray writes a _FillValue
     # for floating point variables, unless the encoding says otherwise.
@@ -60,4 +121,5 @@ def run_checker(
         for result in report[f"{priority}_priorities"]
         if result.value[0] < result.value[1]
         for message in result.msgs
+        if not any(text in message for text in FALSE_POSITIVES)
     ]
