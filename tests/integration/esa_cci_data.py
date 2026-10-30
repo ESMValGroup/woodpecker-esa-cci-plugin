@@ -11,6 +11,7 @@ data stores that open them:
   datasets are skipped without it.
 """
 
+import functools
 from importlib.metadata import version
 from typing import Any, Literal, NamedTuple
 
@@ -416,6 +417,92 @@ def _odp_variable_names(case: Case, store: Any) -> list[str]:  # noqa: ANN401
     return [str(name) for name in dataset.data_vars]
 
 
+def _decode_times(dataset: xr.Dataset) -> xr.Dataset:
+    """Return ``dataset``, opened with ``decode_times=False``, decoded.
+
+    The result is the same as opening it with ``decode_times=True``. The
+    other decoding was already done when opening it.
+    """
+    return xr.decode_cf(
+        dataset,
+        concat_characters=False,
+        mask_and_scale=False,
+        decode_coords=False,
+    )
+
+
+@functools.lru_cache(maxsize=1)
+def _open_store_dataset(
+    store: Store,
+    data_id: str,
+    time_steps: int | None,
+) -> xr.Dataset:
+    """Open a zarr or Kerchunk dataset lazily, without decoding the times.
+
+    The datasets are cached, because the tests open each dataset for
+    several recipes, with and without decoding the times, and opening a
+    Kerchunk dataset reads all its references, which takes seconds. The
+    cases of a dataset are next to each other, so only the last one is
+    cached. With ``time_steps``, only the first time steps are opened.
+    """
+    dataset: xr.Dataset
+    if store == "ccizarr":
+        dataset = xr.open_zarr(
+            f"s3://{BUCKET}/{data_id}",
+            chunks=CHUNKS,
+            storage_options=STORAGE_OPTIONS,
+            decode_times=False,
+        )
+    else:
+        url = f"{KERCHUNK_URL}/{KERCHUNK_REFERENCES[data_id]}"
+        # zarr 3 only reads from asynchronous file systems, while zarr 2
+        # only reads from synchronous ones.
+        asynchronous = not version("zarr").startswith("2.")
+        dataset = xr.open_zarr(
+            "reference://",
+            chunks=CHUNKS,
+            consolidated=False,
+            decode_times=False,
+            storage_options={
+                "fo": f"{url}/{data_id}.json",
+                "remote_protocol": "https",
+                "asynchronous": asynchronous,
+                "remote_options": {"asynchronous": asynchronous},
+            },
+        )
+    if time_steps is not None:
+        dataset = dataset.isel(time=slice(time_steps))
+    return dataset
+
+
+def clear_dataset_cache() -> None:
+    """Free the cached dataset.
+
+    The references of large Kerchunk datasets take hundreds of MB.
+    """
+    _open_store_dataset.cache_clear()
+
+
+def _open_odp_dataset(case: Case, *, full_time_axis: bool) -> xr.Dataset:
+    """Open an Open Data Portal dataset lazily."""
+    xcube_store = pytest.importorskip("xcube.core.store")
+    store = xcube_store.new_data_store("cciodp")
+    dataset: xr.Dataset = store.open_data(
+        case.data_id,
+        variable_names=_odp_variable_names(case, store),
+    )
+    # The store has no option to set the chunks. With only a few time
+    # steps, the dask graph is small with the storage chunks, and larger
+    # dask chunks would read more files.
+    # Polar grids have x/y dimensions instead of lat/lon, with storage
+    # chunks of a whole time step.
+    if full_time_axis:
+        return dataset.chunk(
+            {dim: size for dim, size in CHUNKS.items() if dim in dataset.dims}
+        )
+    return dataset.isel(time=slice(case.opened_time_steps))
+
+
 def _open_dataset(
     case: Case,
     *,
@@ -427,56 +514,21 @@ def _open_dataset(
     Without ``full_time_axis``, only the first time steps of the Kerchunk and
     Open Data Portal datasets are opened.
     """
-    dataset: xr.Dataset
-    if case.store == "ccizarr":
-        dataset = xr.open_zarr(
-            f"s3://{BUCKET}/{case.data_id}",
-            chunks=CHUNKS,
-            storage_options=STORAGE_OPTIONS,
-            decode_times=decode_times,
-        )
-    elif case.store == "ccikc":
-        url = f"{KERCHUNK_URL}/{KERCHUNK_REFERENCES[case.data_id]}"
-        # zarr 3 only reads from asynchronous file systems, while zarr 2
-        # only reads from synchronous ones.
-        asynchronous = not version("zarr").startswith("2.")
-        dataset = xr.open_zarr(
-            "reference://",
-            chunks=CHUNKS,
-            consolidated=False,
-            decode_times=decode_times,
-            storage_options={
-                "fo": f"{url}/{case.data_id}.json",
-                "remote_protocol": "https",
-                "asynchronous": asynchronous,
-                "remote_options": {"asynchronous": asynchronous},
-            },
-        )
-    else:
-        xcube_store = pytest.importorskip("xcube.core.store")
+    if case.store == "cciodp":
         if not decode_times:
             pytest.skip("The Open Data Portal store always decodes the times")
-        store = xcube_store.new_data_store("cciodp")
-        dataset = store.open_data(
-            case.data_id,
-            variable_names=_odp_variable_names(case, store),
-        )
-        # The store has no option to set the chunks. With only a few time
-        # steps, the dask graph is small with the storage chunks, and larger
-        # dask chunks would read more files.
-        # Polar grids have x/y dimensions instead of lat/lon, with storage
-        # chunks of a whole time step.
-        if full_time_axis:
-            dataset = dataset.chunk(
-                {
-                    dim: size
-                    for dim, size in CHUNKS.items()
-                    if dim in dataset.dims
-                }
-            )
-    if case.store != "ccizarr" and not full_time_axis:
-        dataset = dataset.isel(time=slice(case.opened_time_steps))
-    return dataset
+        clear_dataset_cache()
+        return _open_odp_dataset(case, full_time_axis=full_time_axis)
+    time_steps = (
+        None
+        if case.store == "ccizarr" or full_time_axis
+        else case.opened_time_steps
+    )
+    # A copy, because the recipes change the dataset in place.
+    dataset = _open_store_dataset(case.store, case.data_id, time_steps).copy(
+        deep=True
+    )
+    return _decode_times(dataset) if decode_times else dataset
 
 
 def open_fixed_dataset(

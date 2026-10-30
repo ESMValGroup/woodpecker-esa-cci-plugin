@@ -20,6 +20,7 @@ from .esa_cci_data import (
     CASES,
     TIME_STEPS,
     Case,
+    clear_dataset_cache,
     open_fixed_dataset,
 )
 
@@ -51,6 +52,13 @@ TIME_RANGE_FORMATS = {"mon": "%Y%m", "day": "%Y%m%d"}
 def case(request: pytest.FixtureRequest) -> Case:
     result: Case = request.param
     return result
+
+
+@pytest.fixture(scope="module", autouse=True)
+def _clear_dataset_cache() -> Iterator[None]:
+    """Free the cached dataset after the last case, for the other tests."""
+    yield
+    clear_dataset_cache()
 
 
 @pytest.fixture(scope="module")

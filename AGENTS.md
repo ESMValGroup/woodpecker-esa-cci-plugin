@@ -88,8 +88,8 @@ degC with `esa_cci.set_attributes` instead.
 The integration tests are skipped in the `default` environment, because
 their dependencies are not installed there. Make sure the `online` and
 `xcube` environments are installed, and after a change that affects a fix or
-recipe that the integration tests use, run them in both. They take about 10
-minutes in `online` and 25 minutes in `xcube`, and need up to 6 GB of
+recipe that the integration tests use, run them in both. They take about 5
+minutes in `online` and 22 minutes in `xcube`, and need up to 6 GB of
 memory. Select the tests of the affected datasets with `-k` while working
 on a change, and run all of them before committing:
 
