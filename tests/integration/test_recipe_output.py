@@ -6,6 +6,7 @@ scoped and parametrized by the case, so pytest runs all checks of one case
 before opening the next, and only one dataset is in memory at a time.
 """
 
+import importlib.util
 import shutil
 import subprocess
 import warnings
@@ -51,6 +52,11 @@ TIME_RANGE_FORMATS = {"mon": "%Y%m", "day": "%Y%m%d"}
 @pytest.fixture(scope="module", params=CASES, ids=[c.id for c in CASES])
 def case(request: pytest.FixtureRequest) -> Case:
     result: Case = request.param
+    if result.store != "cciodp" and importlib.util.find_spec("xcube"):
+        pytest.skip(
+            "The online environment tests the zarr and Kerchunk datasets, "
+            "with all checkers"
+        )
     return result
 
 

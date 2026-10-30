@@ -89,7 +89,7 @@ The integration tests are skipped in the `default` environment, because
 their dependencies are not installed there. Make sure the `online` and
 `xcube` environments are installed, and after a change that affects a fix or
 recipe that the integration tests use, run them in both. They take about 5
-minutes in `online` and 22 minutes in `xcube`, and need up to 6 GB of
+minutes in `online` and 18 minutes in `xcube`, and need up to 6 GB of
 memory. Select the tests of the affected datasets with `-k` while working
 on a change, and run all of them before committing:
 
@@ -99,8 +99,10 @@ pixi run -e xcube pytest tests/integration
 ```
 
 Each environment skips the tests that need the other one, and `online`
-skips the Open Data Portal datasets, which only xcube-cci can open. Check
-that the tests you expect to run pass and are not skipped.
+skips the Open Data Portal datasets, which only xcube-cci can open, while
+`xcube` skips the recipe output tests of the zarr and Kerchunk datasets,
+which `online` runs with all checkers. Check that the tests you expect to
+run pass and are not skipped.
 
 The integration tests only use the first few time steps of the Kerchunk
 and Open Data Portal datasets. After adding a dataset or changing a fix or
