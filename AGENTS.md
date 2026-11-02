@@ -45,9 +45,12 @@ enables all rules with a line length of 79, and mypy runs in strict mode on
   fix is needed.
 - `src/woodpecker_esa_cci_plugin/__init__.py`: imports all fixes, which
   registers them. Add new fixes here.
-- `src/woodpecker_esa_cci_plugin/recipes/`: one YAML file per dataset.
-  Woodpecker selects a recipe by matching its `path_patterns` against the
-  input name. Steps run in the order listed, each fix at most once per
+- `src/woodpecker_esa_cci_plugin/recipes/`: one YAML file per ECV, with
+  one recipe per CMIP7 variable, named `esa_cci.<ecv>[_<variable>]`, that
+  covers all versions of the datasets in the stores. Variables without a
+  direct CMIP7 equivalent in `docs/cmip7_variable_mapping.md` get no
+  recipe. Woodpecker selects a recipe by matching its `path_patterns`
+  against the input name. Steps run in the order listed, each fix at most once per
   recipe, and variables are renamed last so that all other steps use the
   original names. The recipes select the variables first, with
   `esa_cci.fix_variable_references` and `esa_cci.select_variables`, so the
@@ -62,16 +65,49 @@ uncertainties, standard deviations and the number of observations, instead
 of letting `esa_cci.select_variables` drop them. List them in the
 `ancillary_variables` reference of the selected variable in
 `esa_cci.fix_variable_references`: then they are kept, and iris loads them
-as ancillary variables of the same cube. Check the
-product user guide for what each one means, and give it a CF standard name
-where one fits, e.g. `<standard_name> standard_error` for an uncertainty of
-`<standard_name>`, or `number_of_observations` for a count. Give them the
-units of the selected variable, except counts, which have units `1`.
+as ancillary variables of the same cube. Check the product user guide for
+what each one means, and give it a CF standard name where one fits, e.g.
+`<standard_name> standard_error` for a standard error of `<standard_name>`,
+or `number_of_observations` for a count. Uncertainties that are not a
+standard error, such as a probability of misclassification, get no standard
+name, only a `long_name` and a `comment` that say what they are.
+
+Give the uncertainties the units of the selected variable, except counts,
+which have units `1`. CF requires a standard error to have the units of
+its variable and has no way to describe a relative uncertainty, so convert
+uncertainties that are relative to the value, e.g. in percent of it, to
+absolute ones with `esa_cci.convert_relative_uncertainties`. The units do
+not tell the two apart when the variable is itself a fraction or a
+percentage, so check the product user guide whether such an uncertainty is
+in percentage points or relative to the value. Uncertainties that cannot be
+made absolute, such as those of the logarithm of the variable, keep their
+own dimensionless units and get no standard name.
+
 Uncertainties of a temperature are temperature differences, so they need
 `units_metadata: "temperature: difference"`, and `esa_cci.convert_units`
 cannot convert them: it would subtract 273.15 when converting K to degC.
 Since a difference has the same value in K and degC, set their units to
 degC with `esa_cci.set_attributes` instead.
+
+## Links to the documentation
+
+When a recipe step, attribute or fix relies on the documentation of a
+dataset, such as its product user guide, or on the CF conventions, link
+the passage in the comment that explains it. Make the link as specific as
+possible, so that a reader lands on the passage itself: for a PDF, give the
+document version, the section and the page, and link the page with
+`#page=<n>` (check that the page of the PDF file matches the printed page
+number), and for a web page, link the anchor of the section. For example:
+
+```yaml
+# Section 2, "Cloud mask & fraction", on page 12 of the Product User Guide
+# (D3.3, v5.1), defines the uncertainty of a pixel as ...:
+# https://climate.esa.int/media/documents/Cloud_Product-User-Guide-PUG_v5.1.pdf#page=12
+```
+
+Do the same in the README and in `docs/cmip7_variable_mapping.md`, with
+markdown links. Then reviewers and later changes can check the source
+instead of trusting the comment.
 
 ## Tests
 
@@ -109,3 +145,37 @@ and Open Data Portal datasets. After adding a dataset or changing a fix or
 recipe step that affects the time coordinate, also run them with
 `--full-time-axis` on the affected datasets, selected with `-k`, e.g.
 `-k WATERVAPOUR.day`.
+
+### Memory use
+
+The datasets are opened lazily, and some are tens of GB, so a fix that
+loads data eagerly, e.g. with `np.zeros(data.shape)`, can use all the memory
+of the machine. Keep the data of fixes lazy, and run the integration tests
+and any script that opens the real data under a memory cap, so that the
+process is killed instead of the machine running out of memory. On Linux:
+
+```bash
+systemd-run --user --scope -q -p MemoryMax=6G -p MemorySwapMax=0 \
+    pixi run -e online pytest tests/integration
+```
+
+Use 4G for the unit tests. Exit code 137 means the process went over the
+cap: treat it as a bug to investigate, not as a reason to raise the cap.
+Run one integration run at a time, in the background: each can use up to
+the cap. The pixi environments set `MALLOC_ARENA_MAX=2`, which stops the
+memory use of long runs from creeping up.
+
+### Other notes
+
+- The CEDA server is sometimes unreliable: Kerchunk cases can fail with
+  `ReferenceNotReachable` or `FSTimeoutError`. Rerun them before
+  investigating.
+- The Open Data Portal datasets only get the CF and CMIP7 checks by hand,
+  since they need `xcube` and the checkers need `online`. Write the recipe
+  output of each one to netCDF in `xcube`, with `open_fixed_dataset` and
+  `compliance_checker.write_subset`, and check the files in `online` with
+  `compliance_checker.run_checker` and `esmvalcore.cmor.check.cmor_check`.
+- To show that a refactor leaves the output unchanged, dump the dimensions,
+  attributes, encoding and sums of the first time steps of each case from
+  `open_fixed_dataset` to JSON, for the new code and for a `git worktree`
+  of the old commit, and compare them. NaN `_FillValue`s compare unequal.

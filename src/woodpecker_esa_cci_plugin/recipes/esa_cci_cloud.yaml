@@ -66,15 +66,24 @@ recipes:
             cfc: &cfc_attributes
               long_name: Total Cloud Cover Percentage
               cell_methods: "area: time: mean"
-            # The Product User Guide (D3.3, v5.1) describes how the monthly
-            # values are computed from the pixels: Level-3C means and
-            # uncertainties in its Annex C.
+            # The Product User Guide (D3.3, v5.1) describes the Level-3C
+            # variables in Annex B, on pages 62-63, and how the monthly
+            # uncertainties are computed from those of the pixels in
+            # Annex C, on page 72:
+            # https://climate.esa.int/media/documents/Cloud_Product-User-Guide-PUG_v5.1.pdf#page=72
+            # Section 2, "Cloud mask & fraction", on page 12, defines the
+            # uncertainty of a pixel as the probability, in percent, that
+            # its cloud mask is wrong, so their mean is in percentage points
+            # of the cloud fraction. It calls the mean a qualitative measure
+            # of the uncertainty of the cloud fraction, and a probability is
+            # not a standard error, so it has no CF standard name:
+            # https://climate.esa.int/media/documents/Cloud_Product-User-Guide-PUG_v5.1.pdf#page=12
             cfc_unc: &cfc_unc_attributes
-              standard_name: cloud_area_fraction standard_error
               comment: >-
-                Mean of the uncertainties of the pixels in the grid cell:
-                the uncertainty of the cloud fraction if their errors are
-                fully correlated.
+                Mean of the uncertainties of the pixels in the grid cell,
+                the probabilities that their cloud masks are wrong: a
+                qualitative measure of the uncertainty of the cloud
+                fraction.
             # Smaller than cfc_unc, by about the square root of the number
             # of observations, so not the uncertainty if the errors are
             # correlated. The Product User Guide does not say how it is

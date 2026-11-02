@@ -159,8 +159,10 @@ iris loads as ancillary variables of the cube:
   and `analysis_number`.
 - Sea surface salinity: `sss_random_error`, the standard error of `sos`,
   and `total_nobs`, the number of observations.
-- Cloud fraction: `cfc_unc`, the mean of the pixel uncertainties, as the
-  standard error of `clt`; `cfc_prop_unc`, the uncertainty propagated
+- Cloud fraction: `cfc_unc`, the mean of the pixel uncertainties, the
+  probabilities that the cloud mask is wrong, which the
+  [Product User Guide, page 12](https://climate.esa.int/media/documents/Cloud_Product-User-Guide-PUG_v5.1.pdf#page=12)
+  calls a qualitative measure of the uncertainty of `clt`; `cfc_prop_unc`, the uncertainty propagated
   from the pixels, except in the zarr store; `cfc_std`, the standard
   deviation over the month; and `nobs`, the number of observations. The
   other cloud variables have no uncertainty variables.
