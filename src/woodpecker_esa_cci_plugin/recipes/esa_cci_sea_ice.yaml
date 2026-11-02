@@ -16,10 +16,17 @@ recipes:
       # fix only once per recipe.
       # Select the variables first, so the other steps only process those.
       # ice_conc refers to the variables to keep with it: its standard
-      # error, and its grid mapping. Without the status_flag, a bit mask
-      # that the Open Data Portal store gives as floating point numbers,
-      # which CF does not allow for flags. Like the ESMValTool CMORizer,
-      # only the concentration and its uncertainty are kept.
+      # error, and its grid mapping. Section 5.1 of the Product User Guide
+      # (D4.2, issue 3.0), on page 18, gives total_standard_uncertainty as
+      # one standard deviation, in percent like ice_conc:
+      # https://admin.climate.esa.int/media/documents/SeaIce_CCI_P1_PUG-HRSIC_D4.2_Issue_3.0.pdf#page=18
+      # Without the status_flag, a bit mask that the Open Data Portal store
+      # gives as floating point numbers:
+      # section 3.5 of CF 1.12 describes flag_masks as bit fields, and the
+      # CF compliance checker requires them to be integers:
+      # https://cfconventions.org/Data/cf-conventions/cf-conventions-1.12/cf-conventions.html#flags
+      # Like the ESMValTool CMORizer, only the concentration and its
+      # uncertainty are kept.
       - id: esa_cci.fix_variable_references
         options:
           references:
@@ -79,9 +86,12 @@ recipes:
       - id: esa_cci.remove_attributes
         options:
           attributes:
-            # Bounds variables inherit the standard_name and long_name of
-            # their coordinate, and CF recommends leaving them out. The Open
-            # Data Portal store sets the invalid standard_name time_bnds.
+            # Bounds variables inherit the standard_name and long_name of their
+            # coordinate, and CF recommends leaving them out, in section 7.1 of
+            # CF 1.12:
+            # https://cfconventions.org/Data/cf-conventions/cf-conventions-1.12/cf-conventions.html#cell-boundaries
+            # The Open Data Portal store sets the invalid standard_name
+            # time_bnds.
             time_bnds: [standard_name]
       - id: esa_cci.set_global_attributes
         options:

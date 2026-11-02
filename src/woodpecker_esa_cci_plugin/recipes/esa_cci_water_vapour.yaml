@@ -42,9 +42,11 @@ recipes:
               standard_name: atmosphere_mass_content_of_water_vapor
               long_name: Water Vapor Path
               cell_methods: "area: time: mean"
-            # The monthly values are the means of the daily values, except
-            # num_obs, which is their sum, as described in the Product User
-            # Guide (D4.3, issue 2.2) and checked against the daily data.
+            # The monthly values are the means of the daily values, as
+            # described in section 3.1.3.3.2 of the Product User Guide (D4.3,
+            # issue 2.2), on page 24, and checked against the daily data,
+            # except num_obs, which is their sum:
+            # https://climate.esa.int/media/documents/Water_Vapour_cci_D4.3_PUG_v2.2.pdf#page=24
             stdv: &stdv_attributes
               # The standard deviation of the retrievals in the grid cell.
               standard_name: atmosphere_mass_content_of_water_vapor
@@ -54,6 +56,9 @@ recipes:
             num_obs: &num_obs_attributes
               standard_name: number_of_observations
               units: "1"
+            # The mean of the uncertainties of the retrievals, in table 3-1
+            # of the Product User Guide, on page 19:
+            # https://climate.esa.int/media/documents/Water_Vapour_cci_D4.3_PUG_v2.2.pdf#page=19
             tcwv_err: &tcwv_err_attributes
               standard_name: >-
                 atmosphere_mass_content_of_water_vapor standard_error
@@ -65,8 +70,9 @@ recipes:
             # Not the uncertainty of the total column water vapour, so it has
             # no CF standard name.
             tcwv_ran: &tcwv_ran_attributes
-              # The name in the Product User Guide. Some stores call it
-              # Random retrieval uncertainty.
+              # The name in table 3-1 of the Product User Guide, on page
+              # 19. Some stores call it Random retrieval uncertainty.
+              # https://climate.esa.int/media/documents/Water_Vapour_cci_D4.3_PUG_v2.2.pdf#page=19
               long_name: Propagated retrieval uncertainty
               comment: >-
                 Mean over the days of the month of the root mean square of
@@ -89,9 +95,12 @@ recipes:
             # ones from esa_cci.set_attributes.
             crs: [standard_name]
             tcwv_ran: [standard_name]
-            # Bounds variables inherit the standard_name and long_name of
-            # their coordinate, and CF recommends leaving them out. The Open
-            # Data Portal store sets the invalid standard_name time_bnds.
+            # Bounds variables inherit the standard_name and long_name of their
+            # coordinate, and CF recommends leaving them out, in section 7.1 of
+            # CF 1.12:
+            # https://cfconventions.org/Data/cf-conventions/cf-conventions-1.12/cf-conventions.html#cell-boundaries
+            # The Open Data Portal store sets the invalid standard_name
+            # time_bnds.
             lat_bnds: &bounds [standard_name, long_name, comment]
             lon_bnds: *bounds
             time_bnds: *bounds

@@ -73,9 +73,12 @@ recipes:
             # escapes, and the GDAL GeoTransform, which is wrong after
             # normalizing the longitude. The CF attributes are there.
             spatial_ref: [spatial_ref, GeoTransform]
-            # Bounds variables inherit the standard_name and long_name of
-            # their coordinate, and CF recommends leaving them out. The Open
-            # Data Portal store sets the invalid standard_name time_bnds.
+            # Bounds variables inherit the standard_name and long_name of their
+            # coordinate, and CF recommends leaving them out, in section 7.1 of
+            # CF 1.12:
+            # https://cfconventions.org/Data/cf-conventions/cf-conventions-1.12/cf-conventions.html#cell-boundaries
+            # The Open Data Portal store sets the invalid standard_name
+            # time_bnds.
             lat_bnds: &bounds [standard_name, long_name, comment]
             lon_bnds: *bounds
             time_bnds: *bounds
@@ -120,7 +123,11 @@ recipes:
         options:
           coordinate: lon
       # scfg refers to its standard error scfg_unc and its grid mapping
-      # spatial_ref, so they are kept.
+      # spatial_ref, so they are kept. Table 3.4 of the Product User Guide
+      # (D4.3, issue 3.1), on printed page 13, gives scfg_unc as an
+      # estimate of the RMSE in percent of snow cover, so in the units of
+      # scfg:
+      # https://climate.esa.int/media/documents/Snow_cci_D4.3_PUG_v3.1.pdf#page=19
       - id: woodpecker.rename_variables
         options:
           mapping:
@@ -164,7 +171,10 @@ recipes:
               # A depth of water of 1 mm is a mass of 1 kg per m2.
               units: kg m-2
               cell_methods: *land_mean
-            # The estimated standard deviation of the error of swe.
+            # The estimated standard deviation of the error of swe, in
+            # section 4.3 of the Product User Guide (D4.3, issue 3.1), on
+            # printed page 23, for SWE v1.0 and v2.0:
+            # https://climate.esa.int/media/documents/Snow_cci_D4.3_PUG_v3.1.pdf#page=29
             swe_std:
               standard_name: surface_snow_amount standard_error
               units: kg m-2

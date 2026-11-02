@@ -66,7 +66,10 @@ recipes:
               # versions have no units, and others 0.001, which is the same.
               units: "1E-03"
               cell_methods: "area: mean where sea time: mean"
-            # The estimated standard deviation of the random error of sss.
+            # The random error of sss, in the units of sss. Section 2.4.2 of
+            # the Product User Guide (D4.3, v4.0), on page 25, only says that
+            # the error is propagated in the optimal interpolation:
+            # https://Admin.Climate.Esa.Int/documents/2489/SSS_cci_PHASE02_D4.3-PUG-v4.1_final_signed.pdf#page=25
             sss_random_error:
               standard_name: sea_surface_salinity standard_error
               units: "1E-03"
@@ -91,9 +94,12 @@ recipes:
             # variables that are not kept.
             sss: [ancilliary]
             sss_random_error: [ancilliary]
-            # Bounds variables inherit the standard_name and long_name of
-            # their coordinate, and CF recommends leaving them out. The Open
-            # Data Portal store sets the invalid standard_name time_bnds.
+            # Bounds variables inherit the standard_name and long_name of their
+            # coordinate, and CF recommends leaving them out, in section 7.1 of
+            # CF 1.12:
+            # https://cfconventions.org/Data/cf-conventions/cf-conventions-1.12/cf-conventions.html#cell-boundaries
+            # The Open Data Portal store sets the invalid standard_name
+            # time_bnds.
             lat_bnds: &bounds [standard_name, long_name, comment]
             lon_bnds: *bounds
             time_bnds: *bounds
@@ -109,8 +115,10 @@ recipes:
       - id: esa_cci.remove_global_attributes
         options:
           # Empty, or pointing to the original files, which the Kerchunk
-          # store combines. The history describes the Kerchunk file, and CF
-          # requires it.
+          # store combines. The history describes the Kerchunk file, so it
+          # is kept: CF 1.12 describes it in section 2.6.2 as an audit trail
+          # of the modifications of the data.
+          # https://cfconventions.org/Data/cf-conventions/cf-conventions-1.12/cf-conventions.html#description-of-file-contents
           attributes:
             [
               date_created,

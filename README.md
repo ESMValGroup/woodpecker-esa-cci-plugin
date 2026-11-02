@@ -152,29 +152,42 @@ iris loads as ancillary variables of the cube:
 - Water vapour: `tcwv_err`, the mean of the retrieval uncertainties, as the
   standard error of `prw`; `tcwv_ran`, their root mean square; `stdv`, the
   standard deviation of the retrievals; and in v3.2 `num_obs`, the number
-  of retrievals.
+  of retrievals
+  ([Product User Guide, table 3-1, page 19](https://climate.esa.int/media/documents/Water_Vapour_cci_D4.3_PUG_v2.2.pdf#page=19)).
 - Sea surface temperature: the standard error of `tos`, `analysis_error`
   in OSTIA 1-1 and `analysed_sst_uncertainty` in OSTIA 2-1, and for GMPE
-  the spread and the size of the ensemble of analyses, `standard_deviation`
-  and `analysis_number`.
+  the spread of the ensemble of analyses, `standard_deviation`, which the
+  ten HadISST2 realisations dominate, and its size, `analysis_number`
+  ([Product User Guide and Specification, section 1.1, page 8](https://dast.copernicus-climate.eu/documents/satellite-sea-surface-temperature/C3S_D312a_Lot3.3.2.23_201906_PUGS_SST_GMPE_v1.1.pdf#page=8);
+  [dataset](https://dx.doi.org/10.5285/a963d9415bb74247830f8704f825aa90)).
 - Sea surface salinity: `sss_random_error`, the standard error of `sos`,
-  and `total_nobs`, the number of observations.
+  and `total_nobs`, the number of observations. The
+  [Product User Guide, section 2.4.2, page 25](https://Admin.Climate.Esa.Int/documents/2489/SSS_cci_PHASE02_D4.3-PUG-v4.1_final_signed.pdf#page=25)
+  only says that the error is propagated in the optimal interpolation.
 - Cloud fraction: `cfc_unc`, the mean of the pixel uncertainties, the
   probabilities that the cloud mask is wrong, which the
-  [Product User Guide, page 12](https://climate.esa.int/media/documents/Cloud_Product-User-Guide-PUG_v5.1.pdf#page=12)
-  calls a qualitative measure of the uncertainty of `clt`; `cfc_prop_unc`, the uncertainty propagated
-  from the pixels, except in the zarr store; `cfc_std`, the standard
-  deviation over the month; and `nobs`, the number of observations. The
+  [Product User Guide, section 2, page 12](https://climate.esa.int/media/documents/Cloud_Product-User-Guide-PUG_v5.1.pdf#page=12)
+  calls a qualitative measure of the uncertainty of `clt`; `cfc_prop_unc`,
+  the uncertainty propagated from the pixels
+  ([Annex B, page 62](https://climate.esa.int/media/documents/Cloud_Product-User-Guide-PUG_v5.1.pdf#page=62)),
+  except in the zarr store; `cfc_std`, the standard deviation over the
+  month; and `nobs`, the number of observations. The
   other cloud variables have no uncertainty variables.
 - Aerosol optical depth: `AOD550_uncertainty`, the propagated uncertainty
-  including sampling, as the standard error of `od550aer`;
+  including sampling, as the standard error of `od550aer`
+  ([SU v4.3 version notes](https://esgf.ceda.ac.uk/thredds/fileServer/esg_esacci/aerosol/docs/SU_version_info_V4.3.txt));
   `AOD550_uncertainty_mean`, the mean of the pixel uncertainties; the
   standard deviations `AOD550_sdev`, `FM_AOD550_sdev` and `AAOD550_sdev`
   of `od550aer`, `od550lt1aer` and `abs550aer`; and `pixel_count`, the
   number of observations.
-- Snow: `scfg_unc` and `swe_std`, the standard errors of `snc` and `snw`.
+- Snow: `scfg_unc` and `swe_std`, the standard errors of `snc` and `snw`
+  (Product User Guide, issue 3.1,
+  [table 3.4, printed page 13](https://climate.esa.int/media/documents/Snow_cci_D4.3_PUG_v3.1.pdf#page=19) and
+  [section 4.3, printed page 23](https://climate.esa.int/media/documents/Snow_cci_D4.3_PUG_v3.1.pdf#page=29)).
 - Sea ice concentration: `total_standard_uncertainty`, the standard error
-  of `siconc`. The `status_flag` is not kept.
+  of `siconc`
+  ([Product User Guide, section 5.1, page 18](https://admin.climate.esa.int/media/documents/SeaIce_CCI_P1_PUG-HRSIC_D4.2_Issue_3.0.pdf#page=18)).
+  The `status_flag` is not kept.
 - Total ozone column: the standard error, standard deviation and number of
   observations of `toz` from the total column product, and `O3e_du_tot`,
   the standard error of `toz` from the nadir profile product.
@@ -186,7 +199,10 @@ iris loads as ancillary variables of the cube:
 - Ocean colour: `chlor_a_log10_rmsd` and `chlor_a_log10_bias`, the
   root-mean-square difference and bias of log10 of the chlorophyll-a
   concentration, which are dimensionless, and the number of observations,
-  `total_nobs` in the daily and `total_nobs_sum` in the monthly products.
+  `total_nobs` in the daily and `total_nobs_sum` in the monthly products
+  (Product User Guide,
+  [section 3.3, page 17](https://climate.esa.int/documents/3123/D4.2_-_OC-CCI_Product_User_Guide_PUG_v6.5.pdf#page=17) and
+  [section 3.6, page 21](https://climate.esa.int/documents/3123/D4.2_-_OC-CCI_Product_User_Guide_PUG_v6.5.pdf#page=21)).
 
 The 0.05° daily datasets have storage chunks of a few MB, so with those as
 dask chunks, each recipe step adds hundreds of thousands of tasks to the

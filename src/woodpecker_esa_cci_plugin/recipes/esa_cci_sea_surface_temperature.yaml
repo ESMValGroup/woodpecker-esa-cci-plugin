@@ -58,9 +58,14 @@ recipes:
               cell_methods: "area: mean where sea time: mean"
               # The temperature is not a temperature difference.
               units_metadata: "temperature: on_scale"
-            # The spread of the ensemble of analyses. It indicates their
-            # uncertainty, but is not an estimate of the error, so it has no
-            # CF standard name.
+            # The spread of the ensemble of analyses. Section 1.1 of the
+            # Product User Guide and Specification of GMPE v2.0 (v1.1), on
+            # page 8, describes GMPE as a comparison of the analyses, whose
+            # standard deviation the ten HadISST2 realisations dominate. It
+            # indicates their uncertainty, but is not an estimate of the
+            # error, so it has no CF standard name:
+            # https://dast.copernicus-climate.eu/documents/satellite-sea-surface-temperature/C3S_D312a_Lot3.3.2.23_201906_PUGS_SST_GMPE_v1.1.pdf#page=8
+            # The dataset: https://dx.doi.org/10.5285/a963d9415bb74247830f8704f825aa90
             standard_deviation: &sst_difference_attributes
               # The units of tos. A temperature difference has the same value
               # in K and degC, so the values stay the same.
@@ -78,8 +83,10 @@ recipes:
           attributes:
             <<: &coordinate_attributes
               # Bounds variables inherit the standard_name and long_name of
-              # their coordinate, and CF recommends leaving them out. The
-              # Open Data Portal store sets the invalid standard_name
+              # their coordinate, and CF recommends leaving them out, in
+              # section 7.1 of CF 1.12:
+              # https://cfconventions.org/Data/cf-conventions/cf-conventions-1.12/cf-conventions.html#cell-boundaries
+              # The Open Data Portal store sets the invalid standard_name
               # time_bnds.
               lat_bnds: &bounds [standard_name, long_name, comment]
               lon_bnds: *bounds

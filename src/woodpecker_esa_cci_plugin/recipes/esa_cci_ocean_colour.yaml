@@ -62,10 +62,14 @@ recipes:
               cell_methods: "area: mean where sea time: mean"
             # The uncertainties of log10(chlor_a), from the optical water
             # class memberships and validation against in situ data, so
-            # they are dimensionless and have no CF standard name. The
-            # monthly products give the root mean square of the daily
+            # they are dimensionless and have no CF standard name. See
+            # section 3.3 of the Product User Guide for the v6.0 dataset
+            # (D4.2, 11/04/2024), on page 17:
+            # https://climate.esa.int/documents/3123/D4.2_-_OC-CCI_Product_User_Guide_PUG_v6.5.pdf#page=17
+            # The monthly products give the root mean square of the daily
             # root-mean-square differences, and the mean of the daily
-            # biases.
+            # biases, equations 2.13 and 2.14 in section 3.6, on page 21:
+            # https://climate.esa.int/documents/3123/D4.2_-_OC-CCI_Product_User_Guide_PUG_v6.5.pdf#page=21
             chlor_a_log10_rmsd: &rmsd_attributes
               units: "1"
             chlor_a_log10_bias: &bias_attributes
@@ -108,9 +112,12 @@ recipes:
           attributes:
             # The original units, which are not valid UDUNITS units.
             chlor_a: [units_nonstandard]
-            # Bounds variables inherit the standard_name and long_name of
-            # their coordinate, and CF recommends leaving them out. The Open
-            # Data Portal store sets the invalid standard_name time_bnds.
+            # Bounds variables inherit the standard_name and long_name of their
+            # coordinate, and CF recommends leaving them out, in section 7.1 of
+            # CF 1.12:
+            # https://cfconventions.org/Data/cf-conventions/cf-conventions-1.12/cf-conventions.html#cell-boundaries
+            # The Open Data Portal store sets the invalid standard_name
+            # time_bnds.
             lat_bnds: &bounds [standard_name, long_name, comment]
             lon_bnds: *bounds
             time_bnds: *bounds

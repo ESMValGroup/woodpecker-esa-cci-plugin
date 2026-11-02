@@ -86,8 +86,11 @@ recipes:
                 fraction.
             # Smaller than cfc_unc, by about the square root of the number
             # of observations, so not the uncertainty if the errors are
-            # correlated. The Product User Guide does not say how it is
-            # normalized, so it has no CF standard name.
+            # correlated. Annex B of the Product User Guide, on page 62,
+            # only says that the uncertainties of the pixels are added in
+            # quadrature, not how the sum is normalized, so it has no CF
+            # standard name:
+            # https://climate.esa.int/media/documents/Cloud_Product-User-Guide-PUG_v5.1.pdf#page=62
             cfc_prop_unc:
               comment: >-
                 The uncertainties of the pixels in the grid cell added in
@@ -113,9 +116,12 @@ recipes:
         id: esa_cci.remove_attributes
         options:
           attributes:
-            # Bounds variables inherit the standard_name and long_name of
-            # their coordinate, and CF recommends leaving them out. The Open
-            # Data Portal store sets the invalid standard_name time_bnds.
+            # Bounds variables inherit the standard_name and long_name of their
+            # coordinate, and CF recommends leaving them out, in section 7.1 of
+            # CF 1.12:
+            # https://cfconventions.org/Data/cf-conventions/cf-conventions-1.12/cf-conventions.html#cell-boundaries
+            # The Open Data Portal store sets the invalid standard_name
+            # time_bnds.
             lat_bnds: &bounds [standard_name, long_name, comment]
             lon_bnds: *bounds
             time_bnds: *bounds
@@ -526,8 +532,9 @@ recipes:
           attributes:
             toa_swdn:
               <<: *mean_attributes
-              # The original toa_downwelling_shortwave_flux is not a CF
-              # standard name.
+              # The original toa_downwelling_shortwave_flux is not in the
+              # CF standard name table (version 95):
+              # https://cfconventions.org/Data/cf-standard-names/95/build/cf-standard-name-table.html
               standard_name: toa_incoming_shortwave_flux
               long_name: TOA Incident Shortwave Radiation
               positive: down
