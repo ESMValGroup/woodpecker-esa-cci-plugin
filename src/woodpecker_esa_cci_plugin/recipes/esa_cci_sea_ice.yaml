@@ -215,7 +215,8 @@ recipes:
       - *rename_siconc
 
   # The AMSR dataset in the zarr store has no grid mapping variable: only the
-  # fill value of the variable is left, as a global attribute.
+  # fill value of the variable is left, as a global attribute. Reported in:
+  # https://github.com/esa-cci/xcube-cci/issues/66#issuecomment-6640288322
   - id: esa_cci.sea_ice_siconc_amsr_zarr
     description: >-
       Prepare the sea ice concentration (ice_conc) of the ESA CCI daily AMSR
