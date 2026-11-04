@@ -8,6 +8,8 @@ ESA CCI fixes and recipes for
 ## Contents
 
 - [Usage](#usage)
+  - [Datasets with several variables](#datasets-with-several-variables)
+  - [Memory use](#memory-use)
 - [Supported datasets](#supported-datasets)
   - [Water vapour](#water-vapour)
   - [Sea surface temperature](#sea-surface-temperature)
@@ -19,9 +21,7 @@ ESA CCI fixes and recipes for
   - [Sea ice thickness](#sea-ice-thickness)
   - [Ozone](#ozone)
   - [Ocean colour](#ocean-colour)
-  - [Datasets with several variables](#datasets-with-several-variables)
-  - [Uncertainties](#uncertainties)
-  - [Memory use](#memory-use)
+- [Uncertainties](#uncertainties)
 - [Known data problems](#known-data-problems)
   - [Time steps in the Open Data Portal store](#time-steps-in-the-open-data-portal-store)
   - [Values](#values)
@@ -69,6 +69,63 @@ dataset.isel(time=0).to_netcdf("prw.nc")
 The data stays lazy, so only the part that is written is downloaded. Use
 `woodpecker.recipe.check` instead of `woodpecker.recipe.apply` to list the
 problems without fixing them.
+
+### Datasets with several variables
+
+The cloud and aerosol datasets provide several variables, each from its own
+recipe, named `esa_cci.<essential climate variable>_<variable>`, e.g.
+`esa_cci.cloud_clt`, with a `_daily` suffix for the daily aerosol
+datasets. Woodpecker raises an error when several recipes match, so pass
+the recipe id:
+
+```python
+woodpecker.recipe.apply(
+    XarrayInput(payload=dataset, name=data_id),
+    woodpecker.recipe.catalog(),
+    recipe_id="esa_cci.cloud_clt",
+    dry_run=False,
+)
+```
+
+Each recipe keeps only its own variable, so open the dataset again for each
+variable.
+
+### Memory use
+
+The 0.05° daily datasets have storage chunks of a few MB, so with those as
+dask chunks, each recipe step adds hundreds of thousands of tasks to the
+dask graph, which takes several GB of memory. Use dask chunks of ~128 MB
+instead: pass `chunks="auto"` to `xr.open_zarr`, or rechunk datasets
+from the xcube-cci Kerchunk and Open Data Portal stores, which have no
+option for the chunks, before applying the recipe:
+
+```python
+from xcube.core.store import new_data_store
+
+data_id = (
+    "esacci.WATERVAPOUR.day.L3S.TCWV.multi-sensor.multi-platform."
+    "TCWV_land_005deg.3-2.r1"
+)
+dataset = new_data_store("cciodp").open_data(data_id).chunk("auto")
+```
+
+The ocean colour `OC_PRODUCTS` datasets contain about 90 variables, and the
+recipes keep only `chlor_a` and its uncertainties. Opening all variables of
+the daily dataset from the Open Data Portal store takes more than 3 GB, so
+pass the variables to keep:
+
+```python
+dataset = new_data_store("cciodp").open_data(
+    "esacci.OC.day.L3S.OC_PRODUCTS.multi-sensor.multi-platform.MERGED."
+    "6-0.geographic",
+    variable_names=[
+        "chlor_a",
+        "chlor_a_log10_rmsd",
+        "chlor_a_log10_bias",
+        "total_nobs",
+    ],
+)
+```
 
 ## Supported datasets
 
@@ -218,27 +275,7 @@ the chlorophyll-a concentration `chlor_a`:
 - Open Data Portal store, the chlorophyll-a and all-variable products:
   `esacci.OC.{day,mon}.L3S.{CHLOR_A,OC_PRODUCTS}.multi-sensor.multi-platform.MERGED.6-0.geographic`
 
-### Datasets with several variables
-
-The cloud and aerosol datasets provide several variables, each from its own
-recipe, named `esa_cci.<essential climate variable>_<variable>`, e.g.
-`esa_cci.cloud_clt`, with a `_daily` suffix for the daily aerosol
-datasets. Woodpecker raises an error when several recipes match, so pass
-the recipe id:
-
-```python
-woodpecker.recipe.apply(
-    XarrayInput(payload=dataset, name=data_id),
-    woodpecker.recipe.catalog(),
-    recipe_id="esa_cci.cloud_clt",
-    dry_run=False,
-)
-```
-
-Each recipe keeps only its own variable, so open the dataset again for each
-variable.
-
-### Uncertainties
+## Uncertainties
 
 The recipes keep the uncertainty information as ancillary variables, which
 iris loads as ancillary variables of the cube:
@@ -305,43 +342,6 @@ iris loads as ancillary variables of the cube:
   (Product User Guide,
   [section 3.3, page 17](https://climate.esa.int/documents/3123/D4.2_-_OC-CCI_Product_User_Guide_PUG_v6.5.pdf#page=17) and
   [section 3.6, page 21](https://climate.esa.int/documents/3123/D4.2_-_OC-CCI_Product_User_Guide_PUG_v6.5.pdf#page=21)).
-
-### Memory use
-
-The 0.05° daily datasets have storage chunks of a few MB, so with those as
-dask chunks, each recipe step adds hundreds of thousands of tasks to the
-dask graph, which takes several GB of memory. Use dask chunks of ~128 MB
-instead: pass `chunks="auto"` to `xr.open_zarr`, or rechunk datasets
-from the xcube-cci Kerchunk and Open Data Portal stores, which have no
-option for the chunks, before applying the recipe:
-
-```python
-from xcube.core.store import new_data_store
-
-data_id = (
-    "esacci.WATERVAPOUR.day.L3S.TCWV.multi-sensor.multi-platform."
-    "TCWV_land_005deg.3-2.r1"
-)
-dataset = new_data_store("cciodp").open_data(data_id).chunk("auto")
-```
-
-The ocean colour `OC_PRODUCTS` datasets contain about 90 variables, and the
-recipes keep only `chlor_a` and its uncertainties. Opening all variables of
-the daily dataset from the Open Data Portal store takes more than 3 GB, so
-pass the variables to keep:
-
-```python
-dataset = new_data_store("cciodp").open_data(
-    "esacci.OC.day.L3S.OC_PRODUCTS.multi-sensor.multi-platform.MERGED."
-    "6-0.geographic",
-    variable_names=[
-        "chlor_a",
-        "chlor_a_log10_rmsd",
-        "chlor_a_log10_bias",
-        "total_nobs",
-    ],
-)
-```
 
 ## Known data problems
 
