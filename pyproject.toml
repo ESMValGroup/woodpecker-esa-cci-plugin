@@ -47,6 +47,7 @@ pip = "*"
 pre-commit = "*"
 pytest = ">=8"
 pytest-cov = "*"
+pytest-rerunfailures = "*"
 pyyaml = "*"
 ruff = "*"
 types-pyyaml = "*"
@@ -110,7 +111,23 @@ fallback_version = "0.0.0"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-addopts = "-ra --strict-markers --cov --cov-report=term-missing --cov-report=xml"
+addopts = [
+  "-ra",
+  "--strict-markers",
+  "--cov",
+  "--cov-report=term-missing",
+  "--cov-report=xml",
+  # The servers that the integration tests read from are sometimes unreliable,
+  # so retry only the errors that these servers cause.
+  "--reruns=3",
+  "--reruns-delay=60",
+  "--only-rerun=ReferenceNotReachable",
+  "--only-rerun=FSTimeoutError",
+  "--only-rerun=ClientResponseError",
+  "--only-rerun=ClientConnectorError",
+  "--only-rerun=ClientPayloadError",
+  "--only-rerun=ServerDisconnectedError",
+]
 
 [tool.coverage.run]
 source = ["woodpecker_esa_cci_plugin"]

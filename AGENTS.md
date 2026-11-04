@@ -173,8 +173,10 @@ memory use of long runs from creeping up.
 ### Other notes
 
 - The CEDA server is sometimes unreliable: Kerchunk cases can fail with
-  `ReferenceNotReachable` or `FSTimeoutError`. Rerun them before
-  investigating.
+  `ReferenceNotReachable` or `FSTimeoutError`. pytest retries the tests that
+  fail with these and similar server errors, listed in `pyproject.toml`, 3
+  times, a minute apart. A failure after that is usually still the server, so
+  rerun them before investigating.
 - The Open Data Portal datasets only get the CF and CMIP7 checks by hand,
   since they need `xcube` and the checkers need `online`. Write the recipe
   output of each one to netCDF in `xcube`, with `open_fixed_dataset` and
