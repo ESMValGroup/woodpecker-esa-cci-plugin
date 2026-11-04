@@ -366,20 +366,22 @@ that time step, and a file that starts exactly when the time step ends is used
 for a time step without a file. The time steps are made from the time range of
 the dataset, so they exist whether or not there is a file. We ran this
 selection on the file times in the catalogue of the store, and the results
-agree with all the differences in the data that we compared.
+agree with all the differences in the data that we compared. We reported this in
+[xcube-cci#74](https://github.com/esa-cci/xcube-cci/issues/74), and the problems that seem to be in the catalogue of the store in
+[xcube-cci#75](https://github.com/esa-cci/xcube-cci/issues/75).
 
 | Datasets (`esacci.`) | Problem | Evidence |
 | --- | --- | --- |
 | `SEAICE.day.L4.SICONC.multi-sensor.multi-platform.AMSR_*` | The data is a day late: each time step has the file of the day before, and the first time steps are copies of the first file. | Compared with the Kerchunk store, whose time steps match the dates in the file names, and the catalogue. |
 | `SST.day.L4.SSTskin.Unspecified.Unspecified.GMPE.2-0.r1` | The data is a day late, and the first two time steps are the same. | Compared with the zarr store, on samples from 1981 and 1992, and the catalogue. |
 | `SEAICE.day.L4.SICONC.multi-sensor.multi-platform.RE_SSMI_*`, `SST.day.L4.SSTdepth.multi-sensor.multi-platform.OSTIA.2-1.sst` | Probably a day late, like the datasets above. | The catalogue, for the first 200 time steps, and repeated fields in the data. There is no other store to compare with. |
-| `SEAICE.day.L3C.SICONC.ESMR-(Nimbus-5).*` | All time steps have the same field, that of the first file, because all files have the same time range in the catalogue. | Compared with the Kerchunk store for the southern hemisphere, and the catalogue for both. |
+| `SEAICE.day.L3C.SICONC.ESMR-(Nimbus-5).*` | All time steps have the same field, that of the first file, because all files have the same time range in the catalogue ([xcube-cci#75](https://github.com/esa-cci/xcube-cci/issues/75)). | Compared with the Kerchunk store for the southern hemisphere, and the catalogue for both. |
 | `SEASURFACESALINITY.15-days.L4.SSS.*` | About half of the time steps have the data of the time step before, because the 30-day means overlap. This includes time steps that the recipe keeps. | Compared with the Kerchunk store for v5.5, and the catalogue for all versions. |
-| `AEROSOL.{mon,day}.L3C.AER_PRODUCTS.*` | Many time steps have the same field as the one before. The catalogue predicts another file for 76 of 120 (AATSR) and 75 of 97 (ATSR-2) monthly, and 2315 of 3612 (AATSR) and 2387 of 2944 (ATSR-2) daily time steps. Many ATSR-2 files have an end time in the catalogue that is years after their start. | Repeated fields in the data, and the catalogue. There is no other store to compare with, so it is unclear which time steps are right. |
+| `AEROSOL.{mon,day}.L3C.AER_PRODUCTS.*` | Many time steps have the same field as the one before. The catalogue predicts another file for 76 of 120 (AATSR) and 75 of 97 (ATSR-2) monthly, and 2315 of 3612 (AATSR) and 2387 of 2944 (ATSR-2) daily time steps. Many ATSR-2 files have an end time in the catalogue that is years after their start ([xcube-cci#75](https://github.com/esa-cci/xcube-cci/issues/75)). | Repeated fields in the data, and the catalogue. There is no other store to compare with, so it is unclear which time steps are right. |
 | `SEAICE.mon.L3C.SITHICK.*.NH25KMEASE2.*` | September has no data in the northern hemisphere, but its time step is a copy of October. | Compared with the zarr store for Envisat v2.0, and the catalogue for all datasets. |
 | `SNOW.day.L3C.SWE.*` | A day without data is a copy of the next day. In the first years, that is every other day. | Compared with the Kerchunk store for v2.0, and the catalogue for all versions. |
 | `CLOUD.mon.*.AVHRR-PM.3-0.r1`, `OC.day.*`, `SNOW.day.L3C.SCFG.*`, `WATERVAPOUR.day.*.4-2.r1` | The same as above, but only for a few time steps, e.g. 1 of 420 for the cloud dataset and 13 of 9250 for chlorophyll. | The catalogue. The daily datasets other than chlorophyll were only checked for the first 200 time steps. |
-| `OZONE.day.L3S.TC.multi-sensor.multi-platform.MERGED.fv0100.r1` | All days of a month that we sampled have the same field. The files have `1M` in their names and cover a month in the catalogue, so these may be monthly data on a daily time axis. | Repeated fields in the data. There is no other store to compare with, so the cause is unclear. |
+| `OZONE.day.L3S.TC.multi-sensor.multi-platform.MERGED.fv0100.r1` | All days of a month that we sampled have the same field. The files have `1M` in their names and cover a month in the catalogue, so these may be monthly data on a daily time axis ([xcube-cci#75](https://github.com/esa-cci/xcube-cci/issues/75)). | Repeated fields in the data. There is no other store to compare with, so the cause is unclear. |
 | `OZONE.mon.L3.NP.multi-sensor.multi-platform.MERGED.fv0002.r1` | Only 36 of the 144 monthly time steps have a file in the catalogue. The others have no data. | The catalogue, and samples of the data. There is no other store to compare with. |
 
 We found no problem with the time steps of `CLOUD.mon.*.AVHRR-AM.3-0.r1`,
