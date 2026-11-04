@@ -5,6 +5,30 @@
 ESA CCI fixes and recipes for
 [Woodpecker](https://github.com/roocs/woodpecker).
 
+## Contents
+
+- [Usage](#usage)
+- [Supported datasets](#supported-datasets)
+  - [Water vapour](#water-vapour)
+  - [Sea surface temperature](#sea-surface-temperature)
+  - [Sea surface salinity](#sea-surface-salinity)
+  - [Cloud](#cloud)
+  - [Aerosol](#aerosol)
+  - [Snow](#snow)
+  - [Sea ice concentration](#sea-ice-concentration)
+  - [Sea ice thickness](#sea-ice-thickness)
+  - [Ozone](#ozone)
+  - [Ocean colour](#ocean-colour)
+  - [Datasets with several variables](#datasets-with-several-variables)
+  - [Uncertainties](#uncertainties)
+  - [Memory use](#memory-use)
+- [Known data problems](#known-data-problems)
+  - [Time steps in the Open Data Portal store](#time-steps-in-the-open-data-portal-store)
+  - [Values](#values)
+- [Recipes and fixes](#recipes-and-fixes)
+- [Contributing](#contributing)
+- [License](#license)
+
 ## Usage
 
 Install this plugin together with woodpecker, and woodpecker finds its
@@ -54,97 +78,147 @@ Portal. They are available from three stores, which the
 `ccizarr`, `ccikc` and `cciodp` data stores. The data id is the name to
 pass to woodpecker.
 
-- Water vapour, total column, as the CMIP7 variable `prw`:
-  - zarr store: `ESACCI-WATERVAPOUR-L3C-TCWV-meris-005deg-2002-2017-fv3.2.zarr`
-  - Kerchunk store, daily and monthly v3.2 at 0.05° and 0.5°:
-    `ESACCI-WATERVAPOUR-L3C-TCWV-meris-*-fv3.2-kr1.1`
-  - Open Data Portal store, daily and monthly v3.2 and v4.2 at 0.05° and
-    0.5°:
-    `esacci.WATERVAPOUR.{day,mon}.L3S.TCWV.multi-sensor.multi-platform.TCWV_land_*.{3-2,4-2}.r1`
-- Sea surface temperature, daily level 4 analyses, as the CMIP7 variable
-  `tos`:
-  - zarr store, GMPE:
-    `ESACCI-L4_GHRSST-SST-GMPE-GLOB_CDR2.0-1981-2016-v02.0-fv01.0.zarr`
-  - Open Data Portal store, GMPE and OSTIA:
-    `esacci.SST.day.L4.SSTskin.Unspecified.Unspecified.GMPE.2-0.r1`,
-    `esacci.SST.day.L4.SSTdepth.multi-sensor.multi-platform.OSTIA.1-1.r1`
-    and `esacci.SST.day.L4.SSTdepth.multi-sensor.multi-platform.OSTIA.2-1.sst`
-- Sea surface salinity, monthly level 4 analyses, as the CMIP7 variable
-  `sos`, from the 30-day means centred on the 15th of each month. The
-  datasets also have the overlapping 30-day means centred on the 1st,
-  which the recipe removes:
-  - Kerchunk store, v2.31, v3.21, v4.41 and v5.5:
-    `ESACCI-SEASURFACESALINITY-L4-SSS-{,GLOBAL-}MERGED_OI_Monthly_CENTRED_15Day_*`
-  - Open Data Portal store, the same versions:
-    `esacci.SEASURFACESALINITY.15-days.L4.SSS.multi-sensor.multi-platform.{,GLOBAL-}MERGED_OI_Monthly_CENTRED_15Day_*.r1`
-- Cloud, monthly AVHRR v3.0, as the CMIP7 variables `clt`, `lwp`, `clivi`,
-  `clwvi`, the sum of `lwp` and `clivi`, the top of atmosphere fluxes `rlut`, `rlutcs`, `rsut`, `rsutcs` and
-  `rsdt`, and the surface fluxes `rlus`, `rsus`, `rsuscs`, `rlds`,
-  `rldscs`, `rsds` and `rsdscs`:
-  - zarr store, `clt` only:
-    `ESACCI-L3C_CLOUD-CLD_PRODUCTS-AVHRR_NOAA-1982-2016-fv3.0.zarr`
-  - Kerchunk store, the morning and afternoon orbits:
-    `ESACCI-L3C_CLOUD-CLD_PRODUCTS-AVHRR_{AM,PM}-*-fv3.0-kr1.1`
-  - Open Data Portal store, the same:
-    `esacci.CLOUD.mon.L3C.CLD_PRODUCTS.multi-sensor.multi-platform.AVHRR-{AM,PM}.3-0.r1`
-- Aerosol, daily and monthly SU v4.3, as the CMIP7 variables `od550aer`,
-  `od550lt1aer` and `abs550aer`:
-  - Open Data Portal store, ATSR-2 and AATSR:
-    `esacci.AEROSOL.{day,mon}.L3C.AER_PRODUCTS.{ATSR-2.ERS-2,AATSR.Envisat}.SU.4-3.r1`
-- Snow, daily, as the CMIP7 variables `snc`, from the snow cover fraction
-  on the ground, and `snw`, from the snow water equivalent:
-  - zarr store, `snw` v1.0 and v2.0: `ESACCI-L3C_SNOW-SWE-*-fv*.zarr`
-  - Kerchunk store, `snc` and `snw` v2.0:
-    `ESACCI-L3C_SNOW-SCFG-AVHRR_MERGED-19820101-20181230-fv2.0_kr1.0` and
-    `ESACCI-L3C_SNOW-SWE-MERGED-19790102-20200524-fv2.0_kr1.2`
-  - Open Data Portal store, `snc` v2.0 and `snw` v2.0, v3.1 and v4.0:
-    `esacci.SNOW.day.L3C.SCFG.multi-sensor.multi-platform.AVHRR_MERGED.2-0.r1`
-    and `esacci.SNOW.day.L3C.SWE.multi-sensor.multi-platform.MERGED.*.r1`
-- Sea ice concentration, daily, as the CMIP7 variable `siconc`, for the
-  northern and the southern hemisphere, on the polar EASE-Grid 2.0 (x/y)
-  with 2-D latitudes and longitudes:
-  - zarr store, AMSR v2.1 at 50 km, northern hemisphere only:
-    `ESACCI-SEAICE-L4-SICONC-AMSR_50.0kmEASE2-NH-2002-2017-fv2.1.zarr`
-  - Kerchunk store, AMSR v2.1 at 25 and 50 km and Nimbus-5 ESMR v1.0
-    (southern hemisphere only) and v1.1:
-    `ESACCI-SEAICE-L4-SICONC-AMSR_*-fv2.1_kr1.0` and
-    `ESACCI-SEAICE-L3C-SICONC-NIMBUS5_ESMR-EASE2_*`
-  - Open Data Portal store, the same products, and SSM/I and SSMIS v3.0 at
-    12.5 km:
-    `esacci.SEAICE.day.L4.SICONC.multi-sensor.multi-platform.AMSR_{25,50}kmEASE2.2-1.{NH,SH}`,
-    `esacci.SEAICE.day.L3C.SICONC.ESMR-(Nimbus-5).Nimbus-5.*` and
-    `esacci.SEAICE.day.L4.SICONC.multi-sensor.multi-platform.RE_SSMI_12-5kmEASE2-{NH,SH}.3-0.{NH,SH}`
-- Sea ice thickness, monthly, as the CMIP7 variable `sithick`, for the
-  northern hemisphere at 25 km, with data from October to April only, and
-  the southern hemisphere at 50 km, on the polar EASE-Grid 2.0 (x/y) with
-  2-D latitudes and longitudes:
-  - zarr store, Envisat and CryoSat-2 v2.0, northern hemisphere only:
-    `ESACCI-SEAICE-L3C-SITHICK-*-fv2.0.zarr`
-  - Kerchunk store, Envisat v2.0 (southern hemisphere only) and v3.0, and
-    CryoSat-2 v3.0: `ESACCI-SEAICE-L3C-SITHICK-*`
-  - Open Data Portal store, Envisat and CryoSat-2 v2.0, v3.0 and v4.0, and
-    ERS-2 (northern hemisphere only) and Sentinel-3 v4.0:
-    `esacci.SEAICE.mon.L3C.SITHICK.*`
-- Ozone, as the CMIP7 variables `toz`, the total column, and `o3`, the
-  mole fraction:
-  - Open Data Portal store, `toz` from the daily merged total column
-    product and the monthly merged nadir profile product:
-    `esacci.OZONE.day.L3S.TC.multi-sensor.multi-platform.MERGED.fv0100.r1`
-    and `esacci.OZONE.mon.L3.NP.multi-sensor.multi-platform.MERGED.fv0002.r1`
-  - Open Data Portal store, `o3` as monthly zonal means in 10° latitude
-    bands on the 39 CMIP7 pressure levels of `plev39` (`o3_tavg-p39-hy-air`),
-    from the limb profile products of GOMOS, MIPAS, OSIRIS, SCIAMACHY and
-    SMR: `esacci.OZONE.mon.L3.LP.*.v0001.r1`. They cover the levels from
-    the upper troposphere up, so the lower levels are missing values.
-- Ocean colour, daily and monthly merged v6.0 on the 4 km geographic grid,
-  as the CMIP7 variable `chl` at the sea surface (`chl_tavg-ols-hxy-sea`),
-  from the chlorophyll-a concentration `chlor_a`:
-  - zarr store, the products with all ocean colour variables:
-    `ESACCI-OC-L3S-OC_PRODUCTS-MERGED-{1D_DAILY,1M_MONTHLY}_4km_GEO_PML_OCx_QAA-1997-2022-fv6.0.zarr`
-  - Kerchunk store, monthly:
-    `ESACCI-OC-L3S-CHLOR_A-MERGED-1M_MONTHLY_4km_GEO_PML_OCx-199709-202212-fv6.0-kr1.1`
-  - Open Data Portal store, the chlorophyll-a and all-variable products:
-    `esacci.OC.{day,mon}.L3S.{CHLOR_A,OC_PRODUCTS}.multi-sensor.multi-platform.MERGED.6-0.geographic`
+Datasets in which some calendar months or days have no data, such as the
+AVHRR afternoon orbit cloud dataset, get those time steps, with missing
+values, as CMIP7 requires a time coordinate without gaps.
+
+Some of these datasets have [known data problems](#known-data-problems).
+
+For the CMIP7 variables that other ESA CCI datasets could provide, see
+[docs/cmip7_variable_mapping.md](docs/cmip7_variable_mapping.md).
+
+### Water vapour
+
+Water vapour, total column, as the CMIP7 variable `prw`:
+
+- zarr store: `ESACCI-WATERVAPOUR-L3C-TCWV-meris-005deg-2002-2017-fv3.2.zarr`
+- Kerchunk store, daily and monthly v3.2 at 0.05° and 0.5°:
+  `ESACCI-WATERVAPOUR-L3C-TCWV-meris-*-fv3.2-kr1.1`
+- Open Data Portal store, daily and monthly v3.2 and v4.2 at 0.05° and
+  0.5°:
+  `esacci.WATERVAPOUR.{day,mon}.L3S.TCWV.multi-sensor.multi-platform.TCWV_land_*.{3-2,4-2}.r1`
+
+### Sea surface temperature
+
+Sea surface temperature, daily level 4 analyses, as the CMIP7 variable
+`tos`:
+
+- zarr store, GMPE:
+  `ESACCI-L4_GHRSST-SST-GMPE-GLOB_CDR2.0-1981-2016-v02.0-fv01.0.zarr`
+- Open Data Portal store, GMPE and OSTIA:
+  `esacci.SST.day.L4.SSTskin.Unspecified.Unspecified.GMPE.2-0.r1`,
+  `esacci.SST.day.L4.SSTdepth.multi-sensor.multi-platform.OSTIA.1-1.r1`
+  and `esacci.SST.day.L4.SSTdepth.multi-sensor.multi-platform.OSTIA.2-1.sst`
+
+### Sea surface salinity
+
+Sea surface salinity, monthly level 4 analyses, as the CMIP7 variable `sos`,
+from the 30-day means centred on the 15th of each month. The datasets also
+have the overlapping 30-day means centred on the 1st, which the recipe
+removes:
+
+- Kerchunk store, v2.31, v3.21, v4.41 and v5.5:
+  `ESACCI-SEASURFACESALINITY-L4-SSS-{,GLOBAL-}MERGED_OI_Monthly_CENTRED_15Day_*`
+- Open Data Portal store, the same versions:
+  `esacci.SEASURFACESALINITY.15-days.L4.SSS.multi-sensor.multi-platform.{,GLOBAL-}MERGED_OI_Monthly_CENTRED_15Day_*.r1`
+
+### Cloud
+
+Cloud, monthly AVHRR v3.0, as the CMIP7 variables `clt`, `lwp`, `clivi`,
+`clwvi`, the sum of `lwp` and `clivi`, the top of atmosphere fluxes `rlut`,
+`rlutcs`, `rsut`, `rsutcs` and `rsdt`, and the surface fluxes `rlus`,
+`rsus`, `rsuscs`, `rlds`, `rldscs`, `rsds` and `rsdscs`:
+
+- zarr store, `clt` only:
+  `ESACCI-L3C_CLOUD-CLD_PRODUCTS-AVHRR_NOAA-1982-2016-fv3.0.zarr`
+- Kerchunk store, the morning and afternoon orbits:
+  `ESACCI-L3C_CLOUD-CLD_PRODUCTS-AVHRR_{AM,PM}-*-fv3.0-kr1.1`
+- Open Data Portal store, the same:
+  `esacci.CLOUD.mon.L3C.CLD_PRODUCTS.multi-sensor.multi-platform.AVHRR-{AM,PM}.3-0.r1`
+
+### Aerosol
+
+Aerosol, daily and monthly SU v4.3, as the CMIP7 variables `od550aer`,
+`od550lt1aer` and `abs550aer`:
+
+- Open Data Portal store, ATSR-2 and AATSR:
+  `esacci.AEROSOL.{day,mon}.L3C.AER_PRODUCTS.{ATSR-2.ERS-2,AATSR.Envisat}.SU.4-3.r1`
+
+### Snow
+
+Snow, daily, as the CMIP7 variables `snc`, from the snow cover fraction on
+the ground, and `snw`, from the snow water equivalent:
+
+- zarr store, `snw` v1.0 and v2.0: `ESACCI-L3C_SNOW-SWE-*-fv*.zarr`
+- Kerchunk store, `snc` and `snw` v2.0:
+  `ESACCI-L3C_SNOW-SCFG-AVHRR_MERGED-19820101-20181230-fv2.0_kr1.0` and
+  `ESACCI-L3C_SNOW-SWE-MERGED-19790102-20200524-fv2.0_kr1.2`
+- Open Data Portal store, `snc` v2.0 and `snw` v2.0, v3.1 and v4.0:
+  `esacci.SNOW.day.L3C.SCFG.multi-sensor.multi-platform.AVHRR_MERGED.2-0.r1`
+  and `esacci.SNOW.day.L3C.SWE.multi-sensor.multi-platform.MERGED.*.r1`
+
+### Sea ice concentration
+
+Sea ice concentration, daily, as the CMIP7 variable `siconc`, for the
+northern and the southern hemisphere, on the polar EASE-Grid 2.0 (x/y) with
+2-D latitudes and longitudes:
+
+- zarr store, AMSR v2.1 at 50 km, northern hemisphere only:
+  `ESACCI-SEAICE-L4-SICONC-AMSR_50.0kmEASE2-NH-2002-2017-fv2.1.zarr`
+- Kerchunk store, AMSR v2.1 at 25 and 50 km and Nimbus-5 ESMR v1.0
+  (southern hemisphere only) and v1.1:
+  `ESACCI-SEAICE-L4-SICONC-AMSR_*-fv2.1_kr1.0` and
+  `ESACCI-SEAICE-L3C-SICONC-NIMBUS5_ESMR-EASE2_*`
+- Open Data Portal store, the same products, and SSM/I and SSMIS v3.0 at
+  12.5 km:
+  `esacci.SEAICE.day.L4.SICONC.multi-sensor.multi-platform.AMSR_{25,50}kmEASE2.2-1.{NH,SH}`,
+  `esacci.SEAICE.day.L3C.SICONC.ESMR-(Nimbus-5).Nimbus-5.*` and
+  `esacci.SEAICE.day.L4.SICONC.multi-sensor.multi-platform.RE_SSMI_12-5kmEASE2-{NH,SH}.3-0.{NH,SH}`
+
+### Sea ice thickness
+
+Sea ice thickness, monthly, as the CMIP7 variable `sithick`, for the
+northern hemisphere at 25 km, with data from October to April only, and the
+southern hemisphere at 50 km, on the polar EASE-Grid 2.0 (x/y) with 2-D
+latitudes and longitudes:
+
+- zarr store, Envisat and CryoSat-2 v2.0, northern hemisphere only:
+  `ESACCI-SEAICE-L3C-SITHICK-*-fv2.0.zarr`
+- Kerchunk store, Envisat v2.0 (southern hemisphere only) and v3.0, and
+  CryoSat-2 v3.0: `ESACCI-SEAICE-L3C-SITHICK-*`
+- Open Data Portal store, Envisat and CryoSat-2 v2.0, v3.0 and v4.0, and
+  ERS-2 (northern hemisphere only) and Sentinel-3 v4.0:
+  `esacci.SEAICE.mon.L3C.SITHICK.*`
+
+### Ozone
+
+Ozone, as the CMIP7 variables `toz`, the total column, and `o3`, the mole
+fraction:
+
+- Open Data Portal store, `toz` from the daily merged total column
+  product and the monthly merged nadir profile product:
+  `esacci.OZONE.day.L3S.TC.multi-sensor.multi-platform.MERGED.fv0100.r1`
+  and `esacci.OZONE.mon.L3.NP.multi-sensor.multi-platform.MERGED.fv0002.r1`
+- Open Data Portal store, `o3` as monthly zonal means in 10° latitude
+  bands on the 39 CMIP7 pressure levels of `plev39` (`o3_tavg-p39-hy-air`),
+  from the limb profile products of GOMOS, MIPAS, OSIRIS, SCIAMACHY and
+  SMR: `esacci.OZONE.mon.L3.LP.*.v0001.r1`. They cover the levels from
+  the upper troposphere up, so the lower levels are missing values.
+
+### Ocean colour
+
+Ocean colour, daily and monthly merged v6.0 on the 4 km geographic grid, as
+the CMIP7 variable `chl` at the sea surface (`chl_tavg-ols-hxy-sea`), from
+the chlorophyll-a concentration `chlor_a`:
+
+- zarr store, the products with all ocean colour variables:
+  `ESACCI-OC-L3S-OC_PRODUCTS-MERGED-{1D_DAILY,1M_MONTHLY}_4km_GEO_PML_OCx_QAA-1997-2022-fv6.0.zarr`
+- Kerchunk store, monthly:
+  `ESACCI-OC-L3S-CHLOR_A-MERGED-1M_MONTHLY_4km_GEO_PML_OCx-199709-202212-fv6.0-kr1.1`
+- Open Data Portal store, the chlorophyll-a and all-variable products:
+  `esacci.OC.{day,mon}.L3S.{CHLOR_A,OC_PRODUCTS}.multi-sensor.multi-platform.MERGED.6-0.geographic`
+
+### Datasets with several variables
 
 The cloud and aerosol datasets provide several variables, each from its own
 recipe, named `esa_cci.<essential climate variable>_<variable>`, e.g.
@@ -162,9 +236,9 @@ woodpecker.recipe.apply(
 ```
 
 Each recipe keeps only its own variable, so open the dataset again for each
-variable. Datasets in which some calendar months or days have no data,
-such as the AVHRR afternoon orbit cloud dataset, get those time steps, with
-missing values, as CMIP7 requires a time coordinate without gaps.
+variable.
+
+### Uncertainties
 
 The recipes keep the uncertainty information as ancillary variables, which
 iris loads as ancillary variables of the cube:
@@ -232,6 +306,8 @@ iris loads as ancillary variables of the cube:
   [section 3.3, page 17](https://climate.esa.int/documents/3123/D4.2_-_OC-CCI_Product_User_Guide_PUG_v6.5.pdf#page=17) and
   [section 3.6, page 21](https://climate.esa.int/documents/3123/D4.2_-_OC-CCI_Product_User_Guide_PUG_v6.5.pdf#page=21)).
 
+### Memory use
+
 The 0.05° daily datasets have storage chunks of a few MB, so with those as
 dask chunks, each recipe step adds hundreds of thousands of tasks to the
 dask graph, which takes several GB of memory. Use dask chunks of ~128 MB
@@ -266,11 +342,6 @@ dataset = new_data_store("cciodp").open_data(
     ],
 )
 ```
-
-Some of these datasets have [known data problems](#known-data-problems).
-
-For the CMIP7 variables that other ESA CCI datasets could provide, see
-[docs/cmip7_variable_mapping.md](docs/cmip7_variable_mapping.md).
 
 ## Known data problems
 
