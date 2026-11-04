@@ -124,15 +124,20 @@ instead of trusting the comment.
 The integration tests are skipped in the `default` environment, because
 their dependencies are not installed there. Make sure the `online` and
 `xcube` environments are installed, and after a change that affects a fix or
-recipe that the integration tests use, run them in both. They take about 5
-minutes in `online` and 18 minutes in `xcube`, and need up to 6 GB of
-memory. Select the tests of the affected datasets with `-k` while working
-on a change, and run all of them before committing:
+recipe that the integration tests use, run them in both, for the recipes that
+the change affects, selected with `-k`:
 
 ```bash
-pixi run -e online pytest tests/integration
-pixi run -e xcube pytest tests/integration
+pixi run -e online pytest tests/integration -k clwvi
+pixi run -e xcube pytest tests/integration -k clwvi
 ```
+
+A new recipe or a change to one recipe only needs the tests of that recipe. A
+change to a fix needs the tests of all recipes that use it, and without `-k`
+all tests run, which takes about 5 minutes in `online` and 18 minutes in
+`xcube`, and up to 6 GB of memory. Run all of them after a change that affects
+all recipes, such as to the test helpers, the dependencies or a fix that most
+recipes use, and only then.
 
 Each environment skips the tests that need the other one, and `online`
 skips the Open Data Portal datasets, which only xcube-cci can open, while
