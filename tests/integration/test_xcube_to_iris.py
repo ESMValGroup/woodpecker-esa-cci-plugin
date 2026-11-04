@@ -2,7 +2,7 @@ import warnings
 
 import pytest
 
-from .esa_cci_data import CASES, CHUNKS, Case, apply_recipe, select_variables
+from .esa_cci_data import CASES, Case, apply_recipe, rechunk, select_variables
 
 xcube_store = pytest.importorskip("xcube.core.store")
 iris = pytest.importorskip("iris")
@@ -28,7 +28,7 @@ def test_loads_with_iris_without_warnings(
     select_variables(case, dataset)
     if case.store == "ccikc" and not full_time_axis:
         dataset = dataset.isel(time=slice(case.opened_time_steps))
-    dataset = dataset.chunk(CHUNKS)
+    dataset = rechunk(dataset)
     apply_recipe(case, dataset)
 
     with warnings.catch_warnings():
@@ -39,8 +39,13 @@ def test_loads_with_iris_without_warnings(
     cube = cubes[0]
     assert cube.var_name == case.variable_id
     # Iris splits e.g. "area: mean where sea time: mean" in two cell
-    # methods.
-    cell_methods = " ".join(str(m) for m in cube.cell_methods)
+    # methods, and repeats a comment for each coordinate of a cell method.
+    cell_methods = " ".join(
+        str(m).replace(" ".join(m.comments), m.comments[0])
+        if m.comments
+        else str(m)
+        for m in cube.cell_methods
+    )
     assert cell_methods == dataset[case.variable_id].attrs["cell_methods"]
     if case.variable_id == "prw":
         coord_system = cube.coord_system()

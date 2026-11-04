@@ -34,6 +34,12 @@ STORAGE_OPTIONS = {
 KERCHUNK_URL = "https://data.cci.ceda.ac.uk/thredds/fileServer/esacci"
 WATER_VAPOUR_REFERENCES = "water_vapour/metadata/kerchunk/TCWV-land/L3/v3.2"
 SALINITY_REFERENCES = "sea_surface_salinity/metadata/kerchunk"
+SEA_ICE_CONCENTRATION_REFERENCES = (
+    "sea_ice/metadata/kerchunk/sea_ice_concentration"
+)
+SEA_ICE_THICKNESS_REFERENCES = (
+    "sea_ice/metadata/kerchunk/sea_ice_thickness/L3C"
+)
 KERCHUNK_REFERENCES = {
     "ESACCI-WATERVAPOUR-L3C-TCWV-meris-005deg-20020701-20171231-fv3.2-kr1.1": (
         f"{WATER_VAPOUR_REFERENCES}/0.05deg/daily"
@@ -91,6 +97,54 @@ KERCHUNK_REFERENCES = {
                     "20231215-fv5.5-kr1.0"
                 ),
                 "v05.5/GLOBALv5.5",
+            ),
+        )
+    },
+    **{
+        f"ESACCI-SEAICE-L3C-SICONC-NIMBUS5_ESMR-EASE2_{name}": (
+            f"{SEA_ICE_CONCENTRATION_REFERENCES}/L3C/esmr/25km/{directory}"
+        )
+        for name, directory in (
+            ("SH-19721211-19770510-fv1.0_kr1.0", "v1.0/SH"),
+            ("LDTPcorrected_NH-19721211-19770511-fv1.1-kr1.0", "v1.1/NH"),
+            ("LDTPcorrected_SH-19721211-19770511-fv1.1-kr1.0", "v1.1/SH"),
+        )
+    },
+    **{
+        (
+            f"ESACCI-SEAICE-L4-SICONC-AMSR_{resolution}.0kmEASE2-{hemisphere}"
+            "-20020601-20170515-fv2.1_kr1.0"
+        ): (
+            f"{SEA_ICE_CONCENTRATION_REFERENCES}/L4/amsr/{resolution}km/v2.1/"
+            f"{hemisphere}"
+        )
+        for resolution in (25, 50)
+        for hemisphere in ("NH", "SH")
+    },
+    **{
+        f"ESACCI-SEAICE-L3C-SITHICK-{name}": (
+            f"{SEA_ICE_THICKNESS_REFERENCES}/{directory}"
+        )
+        for name, directory in (
+            (
+                "RA2_ENVISAT-NH_25KM_EASE2-2002-2012-fv3p0-kr1.0",
+                "envisat/v3.0/NH",
+            ),
+            (
+                "RA2_ENVISAT-SH50KMEASE2-200206-201203-fv2.0_kr1.2",
+                "envisat/v2.0/SH",
+            ),
+            (
+                "RA2_ENVISAT-SH_50KM_EASE2-2002-2012-fv3p0-kr1.0",
+                "envisat/v3.0/SH",
+            ),
+            (
+                "SIRAL_CRYOSAT2-NH_25KM_EASE2-2010-2020-fv3p0-kr1.0",
+                "cryosat2/v3.0/NH",
+            ),
+            (
+                "SIRAL_CRYOSAT2-SH_50KM_EASE2-2010-2020-fv3p0-kr1.0",
+                "cryosat2/v3.0/SH",
             ),
         )
     },
@@ -310,6 +364,72 @@ CASES = [
         for hemisphere in ("NH", "SH")
     ),
     Case(
+        "ccizarr",
+        "ESACCI-SEAICE-L4-SICONC-AMSR_50.0kmEASE2-NH-2002-2017-fv2.1.zarr",
+        "siconc",
+    ),
+    *(
+        Case("ccikc", data_id, "siconc")
+        for data_id in KERCHUNK_REFERENCES
+        if "SEAICE" in data_id and "SICONC" in data_id
+    ),
+    *(
+        Case(
+            "cciodp",
+            "esacci.SEAICE.day.L4.SICONC.multi-sensor.multi-platform."
+            f"AMSR_{resolution}kmEASE2.2-1.{hemisphere}",
+            "siconc",
+        )
+        for resolution in (25, 50)
+        for hemisphere in ("NH", "SH")
+    ),
+    *(
+        Case(
+            "cciodp",
+            "esacci.SEAICE.day.L3C.SICONC.ESMR-(Nimbus-5).Nimbus-5."
+            f"{product}_{hemisphere}.{version}.{hemisphere}",
+            "siconc",
+        )
+        for product, version in (
+            ("NIMBUS5_ESMR-EASE2", "1-0"),
+            ("NIMBUS5_ESMR_EASE2_LDTPcorrected", "1-1"),
+        )
+        for hemisphere in ("NH", "SH")
+    ),
+    *(
+        Case("ccizarr", f"ESACCI-SEAICE-L3C-SITHICK-{name}.zarr", "sithick")
+        for name in (
+            "RA2_ENVISAT-NH25KMEASE2-2002-2012-fv2.0",
+            "SIRAL_CRYOSAT2-NH25KMEASE2-2010-2017-fv2.0",
+        )
+    ),
+    *(
+        Case("ccikc", data_id, "sithick")
+        for data_id in KERCHUNK_REFERENCES
+        if "SEAICE" in data_id and "SITHICK" in data_id
+    ),
+    *(
+        Case(
+            "cciodp",
+            f"esacci.SEAICE.mon.L3C.SITHICK.{sensor}.{grid}.{version}.r1",
+            "sithick",
+        )
+        for sensor, grid, version in (
+            *(
+                (sensor, grid, version)
+                for sensor in ("RA-2.Envisat", "SIRAL.CryoSat-2")
+                for grid in ("NH25KMEASE2", "SH50KMEASE2")
+                for version in ("2-0", "3-0", "4-0")
+            ),
+            ("RA.ERS-2", "NH25KMEASE2", "4-0"),
+            *(
+                (sensor, grid, "4-0")
+                for sensor in ("SRAL.Sentinel-3A", "SRAL.Sentinel-3B")
+                for grid in ("NH25KMEASE2", "SH50KMEASE2")
+            ),
+        )
+    ),
+    Case(
         "cciodp",
         "esacci.OZONE.day.L3S.TC.multi-sensor.multi-platform.MERGED.fv0100.r1",
         "toz",
@@ -484,6 +604,16 @@ def clear_dataset_cache() -> None:
     _open_store_dataset.cache_clear()
 
 
+def rechunk(dataset: xr.Dataset) -> xr.Dataset:
+    """Return ``dataset`` with ``CHUNKS``, for the dimensions it has.
+
+    Polar grids have x/y dimensions instead of lat/lon.
+    """
+    return dataset.chunk(
+        {dim: size for dim, size in CHUNKS.items() if dim in dataset.dims}
+    )
+
+
 def _open_odp_dataset(case: Case, *, full_time_axis: bool) -> xr.Dataset:
     """Open an Open Data Portal dataset lazily."""
     xcube_store = pytest.importorskip("xcube.core.store")
@@ -495,12 +625,9 @@ def _open_odp_dataset(case: Case, *, full_time_axis: bool) -> xr.Dataset:
     # The store has no option to set the chunks. With only a few time
     # steps, the dask graph is small with the storage chunks, and larger
     # dask chunks would read more files.
-    # Polar grids have x/y dimensions instead of lat/lon, with storage
-    # chunks of a whole time step.
+    # Polar grids have storage chunks of a whole time step.
     if full_time_axis:
-        return dataset.chunk(
-            {dim: size for dim, size in CHUNKS.items() if dim in dataset.dims}
-        )
+        return rechunk(dataset)
     return dataset.isel(time=slice(case.opened_time_steps))
 
 

@@ -1,5 +1,6 @@
-# Daily sea ice concentration (SIC) from the SSM/I and SSMIS climate data
-# record at 12.5 km, v3.0, for the northern and the southern hemisphere.
+# Daily sea ice concentration (SIC) from the SSM/I and SSMIS, AMSR and Nimbus-5
+# ESMR climate data records, and monthly sea ice thickness (SIT), for the
+# northern and the southern hemisphere.
 recipes:
   - id: esa_cci.sea_ice_siconc
     description: >-
@@ -37,19 +38,24 @@ recipes:
           variables: [ice_conc]
       # Packing and the range attributes become invalid when the values
       # change, so remove them first. The time encoding is kept.
-      - id: esa_cci.remove_packing
-      - id: esa_cci.remove_range_attributes
+      - &remove_packing
+        id: esa_cci.remove_packing
+      - &remove_range_attributes
+        id: esa_cci.remove_range_attributes
       # The Open Data Portal store adds a time dimension to the latitudes and
       # longitudes, which the files store in 2-D. It reads that from an
       # attribute that the next step removes.
-      - id: esa_cci.remove_xcube_cci_odp_dimensions
+      - &remove_odp_dimensions
+        id: esa_cci.remove_xcube_cci_odp_dimensions
         options:
           dimensions: [time]
       # Attributes that the Open Data Portal store adds to describe the
       # original files.
-      - id: esa_cci.remove_xcube_cci_odp_attributes
+      - &remove_odp_attributes
+        id: esa_cci.remove_xcube_cci_odp_attributes
       # The projection is defined in m.
-      - id: esa_cci.convert_units
+      - &convert_units
+        id: esa_cci.convert_units
         options:
           units:
             xc: m
@@ -58,10 +64,12 @@ recipes:
       # projection. The ESMValTool CMORizer interpolates the corners of the
       # cells from the latitudes and longitudes, which is wrong where the
       # cells cross the antimeridian, so compute them in the projection.
-      - id: esa_cci.add_bounds
+      - &add_bounds
+        id: esa_cci.add_bounds
         options:
           coordinates: [xc, yc]
-      - id: esa_cci.add_geographic_bounds
+      - &add_geographic_bounds
+        id: esa_cci.add_geographic_bounds
         options:
           latitude: lat
           longitude: lon
@@ -69,21 +77,22 @@ recipes:
       - id: esa_cci.set_attributes
         options:
           attributes:
-            ice_conc:
+            ice_conc: &ice_conc_attributes
               long_name: Sea-Ice Area Percentage (Ocean Grid)
               cell_methods: "area: time: mean"
-            time:
+            time: &time_attributes
               # xarray decodes the times to numpy datetime64 or cftime,
               # which do not count leap seconds. Times that are not decoded
               # are converted with them by esa_cci.set_time_units.
               units_metadata: "leap_seconds: none"
               # Required by CMIP7 for the coordinates.
               axis: T
-            xc:
+            xc: &xc_attributes
               axis: X
-            yc:
+            yc: &yc_attributes
               axis: "Y"
-      - id: esa_cci.remove_attributes
+      - &remove_attributes
+        id: esa_cci.remove_attributes
         options:
           attributes:
             # Bounds variables inherit the standard_name and long_name of their
@@ -93,7 +102,8 @@ recipes:
             # The Open Data Portal store sets the invalid standard_name
             # time_bnds.
             time_bnds: [standard_name]
-      - id: esa_cci.set_global_attributes
+      - &set_siconc_global_attributes
+        id: esa_cci.set_global_attributes
         options:
           attributes:
             Conventions: CF-1.11
@@ -102,7 +112,8 @@ recipes:
             branded_variable: siconc_tavg-u-hxy-u
             frequency: day
             realm: seaIce
-      - id: esa_cci.set_time_units
+      - &set_time_units
+        id: esa_cci.set_time_units
         options:
           coordinate: time
           units: days since 1850-01-01
@@ -118,10 +129,234 @@ recipes:
             total_standard_uncertainty: float32
             lat: float64
             lon: float64
-      - id: esa_cci.normalize_longitude
+      - &normalize_longitude
+        id: esa_cci.normalize_longitude
         options:
           coordinate: lon
-      - id: woodpecker.rename_variables
+      - &rename_siconc
+        id: woodpecker.rename_variables
         options:
           mapping:
             siconc: [ice_conc]
+
+  # The AMSR and Nimbus-5 ESMR datasets, with total_standard_error instead of
+  # total_standard_uncertainty.
+  - id: esa_cci.sea_ice_siconc_amsr_esmr
+    description: >-
+      Prepare the sea ice concentration (ice_conc) of the ESA CCI daily AMSR
+      25 km and 50 km EASE-Grid 2.0 datasets, v2.1, and the daily Nimbus-5
+      ESMR datasets, v1.0 and v1.1, in the Kerchunk and Open Data Portal
+      stores, for the northern and the southern hemisphere, as the CMIP7
+      variable siconc
+    match:
+      path_patterns:
+        - "*ESACCI-SEAICE-L4-SICONC-AMSR_*EASE2-*-fv2.1_kr1.0"
+        - "*ESACCI-SEAICE-L3C-SICONC-NIMBUS5_ESMR-EASE2_*"
+        - "*esacci.SEAICE.day.L4.SICONC.multi-sensor.multi-platform.AMSR_*kmEASE2.2-1.*"
+        - "*esacci.SEAICE.day.L3C.SICONC.ESMR-(Nimbus-5).Nimbus-5.*"
+    steps:
+      # total_standard_error is one standard deviation, in percent like
+      # ice_conc: section 5.1.3 on page 19 of the AMSR Product User Guide
+      # (SICCI-PUG-P2-17-09, v1.1):
+      # https://admin.climate.esa.int/media/documents/Sea_Ice_Concentration_Product_User_Guide_1.1.pdf#page=19
+      # The ESMR files describe it the same way, while section 4 on page 15
+      # of the ESMR Product User Guide (D4.2, issue 1.1) combines the
+      # algorithm uncertainty with a resampling uncertainty, the difference
+      # between the maximum and the minimum in a window of 3 x 3 pixels:
+      # https://climate.esa.int/media/documents/SeaIce_CCI_P1_PUG-ESMR_D4.2_Issue_1.1.pdf#page=15
+      # Without the status_flag, like in esa_cci.sea_ice_siconc.
+      - &fix_amsr_esmr_references
+        id: esa_cci.fix_variable_references
+        options:
+          references:
+            ice_conc:
+              ancillary_variables: total_standard_error
+      - &select_ice_conc
+        id: esa_cci.select_variables
+        options:
+          variables: [ice_conc]
+      - *remove_packing
+      - *remove_range_attributes
+      - *remove_odp_dimensions
+      - *remove_odp_attributes
+      - &center_daily_time
+        id: esa_cci.center_time
+        options:
+          coordinate: time
+          frequency: day
+      # The Kerchunk and zarr stores leave out the days without data.
+      - &fill_daily_time_gaps
+        id: esa_cci.fill_time_gaps
+        options:
+          coordinate: time
+          frequency: day
+      - *convert_units
+      - *add_bounds
+      - *add_geographic_bounds
+      - id: esa_cci.set_attributes
+        options:
+          attributes:
+            ice_conc: *ice_conc_attributes
+            time: *time_attributes
+            xc: *xc_attributes
+            yc: *yc_attributes
+      - *remove_attributes
+      - *set_siconc_global_attributes
+      - *set_time_units
+      - &set_amsr_esmr_data_types
+        id: esa_cci.set_data_types
+        options:
+          data_types:
+            ice_conc: float32
+            total_standard_error: float32
+            lat: float64
+            lon: float64
+      - *normalize_longitude
+      - *rename_siconc
+
+  # The AMSR dataset in the zarr store has no grid mapping variable: only the
+  # fill value of the variable is left, as a global attribute.
+  - id: esa_cci.sea_ice_siconc_amsr_zarr
+    description: >-
+      Prepare the sea ice concentration (ice_conc) of the ESA CCI daily AMSR
+      50 km EASE-Grid 2.0 dataset, v2.1, in the zarr store, for the northern
+      hemisphere, as the CMIP7 variable siconc
+    match:
+      path_patterns:
+        - "*ESACCI-SEAICE-L4-SICONC-AMSR_50.0kmEASE2-NH-2002-2017-fv2.1.zarr"
+    steps:
+      - *fix_amsr_esmr_references
+      - *select_ice_conc
+      # The grid mapping of the same dataset in the Kerchunk store, which is
+      # EPSG:6931, like the geospatial_bounds_crs attribute of this dataset.
+      - id: esa_cci.add_scalar_coordinate
+        options:
+          coordinates:
+            Lambert_Azimuthal_Grid:
+              value: 0
+              attributes:
+                long_name: Lambert azimuthal equal area grid mapping
+                grid_mapping_name: lambert_azimuthal_equal_area
+                latitude_of_projection_origin: 90.0
+                longitude_of_projection_origin: 0.0
+                false_easting: 0.0
+                false_northing: 0.0
+                semi_major_axis: 6378137.0
+                inverse_flattening: 298.257223563
+                proj4_string: +proj=laea +lon_0=0 +datum=WGS84 +ellps=WGS84 +lat_0=90.0
+      - *remove_packing
+      - *remove_range_attributes
+      - *center_daily_time
+      - *fill_daily_time_gaps
+      - *convert_units
+      - *add_bounds
+      - *add_geographic_bounds
+      # esa_cci.fix_variable_references removed the references to the grid
+      # mapping, which did not exist yet.
+      - id: esa_cci.set_attributes
+        options:
+          attributes:
+            ice_conc:
+              <<: *ice_conc_attributes
+              grid_mapping: Lambert_Azimuthal_Grid
+            total_standard_error:
+              grid_mapping: Lambert_Azimuthal_Grid
+            time: *time_attributes
+            xc: *xc_attributes
+            yc: *yc_attributes
+      - *remove_attributes
+      - id: esa_cci.remove_global_attributes
+        options:
+          attributes: [Lambert_Azimuthal_Grid]
+      - *set_siconc_global_attributes
+      - *set_time_units
+      - *set_amsr_esmr_data_types
+      - *normalize_longitude
+      - *rename_siconc
+
+  - id: esa_cci.sea_ice_sithick
+    description: >-
+      Prepare the sea ice thickness (sea_ice_thickness) of the ESA CCI monthly
+      Envisat, CryoSat-2, ERS-2 and Sentinel-3 EASE-Grid 2.0 datasets, v2.0,
+      v3.0 and v4.0, for the northern and the southern hemisphere, as the
+      CMIP7 variable sithick
+    match:
+      path_patterns:
+        - "*ESACCI-SEAICE-L3C-SITHICK-*"
+        - "*esacci.SEAICE.mon.L3C.SITHICK.*"
+    steps:
+      # Without the status_flag, quality_flag and region_code, which only
+      # the newer versions have.
+      - id: esa_cci.fix_variable_references
+        options:
+          references:
+            sea_ice_thickness:
+              ancillary_variables: sea_ice_thickness_uncertainty
+      - id: esa_cci.select_variables
+        options:
+          variables: [sea_ice_thickness]
+      - *remove_packing
+      - *remove_range_attributes
+      - *remove_odp_dimensions
+      - *remove_odp_attributes
+      # Some stores have the time points at the start of the month.
+      - id: esa_cci.center_time
+        options:
+          coordinate: time
+          frequency: mon
+      # The northern hemisphere data only cover October to April.
+      - id: esa_cci.fill_time_gaps
+        options:
+          coordinate: time
+          frequency: mon
+      - *convert_units
+      - *add_bounds
+      - *add_geographic_bounds
+      - id: esa_cci.set_attributes
+        options:
+          attributes:
+            sea_ice_thickness:
+              long_name: Sea-Ice Thickness
+              # The mean of the measurements over sea ice, without the open
+              # water in the grid cell, as CMIP7 defines sithick: section
+              # 2.2.1.1 on page 12 of the Product User Guide (D4.2, issue
+              # 3.2):
+              # https://zenodo.org/records/10605998/files/SeaIce_CCI+_P1_PUG-SIT_D4.2_Issue_3.2.pdf#page=12
+              cell_methods: "area: time: mean where sea_ice (mask=siconc)"
+            # Derived from error propagation, in m like sea_ice_thickness:
+            # section 2.2.1.2 on the same page. Versions 3.0 and later name
+            # it a standard error in their standard_name, while version 2.0
+            # has none.
+            sea_ice_thickness_uncertainty:
+              standard_name: sea_ice_thickness standard_error
+            time: *time_attributes
+            xc: *xc_attributes
+            yc: *yc_attributes
+      # See esa_cci.sea_ice_siconc. Versions 3.0 and later set the long_name
+      # of the bounds of time.
+      - id: esa_cci.remove_attributes
+        options:
+          attributes:
+            time_bnds: [standard_name, long_name]
+      - id: esa_cci.set_global_attributes
+        options:
+          attributes:
+            Conventions: CF-1.11
+            # The CMIP7 variable, after renaming.
+            variable_id: sithick
+            branded_variable: sithick_tavg-u-hxy-si
+            frequency: mon
+            realm: seaIce
+      - *set_time_units
+      - id: esa_cci.set_data_types
+        options:
+          data_types:
+            sea_ice_thickness: float32
+            sea_ice_thickness_uncertainty: float32
+            lat: float64
+            lon: float64
+      - *normalize_longitude
+      - id: woodpecker.rename_variables
+        options:
+          mapping:
+            sithick: [sea_ice_thickness]

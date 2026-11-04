@@ -100,11 +100,31 @@ pass to woodpecker.
   - Open Data Portal store, `snc` v2.0 and `snw` v2.0, v3.1 and v4.0:
     `esacci.SNOW.day.L3C.SCFG.multi-sensor.multi-platform.AVHRR_MERGED.2-0.r1`
     and `esacci.SNOW.day.L3C.SWE.multi-sensor.multi-platform.MERGED.*.r1`
-- Sea ice concentration, daily SSM/I and SSMIS v3.0 at 12.5 km, as the
-  CMIP7 variable `siconc`, for the northern and the southern hemisphere,
-  on the polar EASE-Grid 2.0 (x/y) with 2-D latitudes and longitudes:
-  - Open Data Portal store:
+- Sea ice concentration, daily, as the CMIP7 variable `siconc`, for the
+  northern and the southern hemisphere, on the polar EASE-Grid 2.0 (x/y)
+  with 2-D latitudes and longitudes:
+  - zarr store, AMSR v2.1 at 50 km, northern hemisphere only:
+    `ESACCI-SEAICE-L4-SICONC-AMSR_50.0kmEASE2-NH-2002-2017-fv2.1.zarr`
+  - Kerchunk store, AMSR v2.1 at 25 and 50 km and Nimbus-5 ESMR v1.0
+    (southern hemisphere only) and v1.1:
+    `ESACCI-SEAICE-L4-SICONC-AMSR_*-fv2.1_kr1.0` and
+    `ESACCI-SEAICE-L3C-SICONC-NIMBUS5_ESMR-EASE2_*`
+  - Open Data Portal store, the same products, and SSM/I and SSMIS v3.0 at
+    12.5 km:
+    `esacci.SEAICE.day.L4.SICONC.multi-sensor.multi-platform.AMSR_{25,50}kmEASE2.2-1.{NH,SH}`,
+    `esacci.SEAICE.day.L3C.SICONC.ESMR-(Nimbus-5).Nimbus-5.*` and
     `esacci.SEAICE.day.L4.SICONC.multi-sensor.multi-platform.RE_SSMI_12-5kmEASE2-{NH,SH}.3-0.{NH,SH}`
+- Sea ice thickness, monthly, as the CMIP7 variable `sithick`, for the
+  northern hemisphere at 25 km, with data from October to April only, and
+  the southern hemisphere at 50 km, on the polar EASE-Grid 2.0 (x/y) with
+  2-D latitudes and longitudes:
+  - zarr store, Envisat and CryoSat-2 v2.0, northern hemisphere only:
+    `ESACCI-SEAICE-L3C-SITHICK-*-fv2.0.zarr`
+  - Kerchunk store, Envisat v2.0 (southern hemisphere only) and v3.0, and
+    CryoSat-2 v3.0: `ESACCI-SEAICE-L3C-SITHICK-*`
+  - Open Data Portal store, Envisat and CryoSat-2 v2.0, v3.0 and v4.0, and
+    ERS-2 (northern hemisphere only) and Sentinel-3 v4.0:
+    `esacci.SEAICE.mon.L3C.SITHICK.*`
 - Ozone, as the CMIP7 variables `toz`, the total column, and `o3`, the
   mole fraction:
   - Open Data Portal store, `toz` from the daily merged total column
@@ -186,8 +206,16 @@ iris loads as ancillary variables of the cube:
   [section 4.3, printed page 23](https://climate.esa.int/media/documents/Snow_cci_D4.3_PUG_v3.1.pdf#page=29)).
 - Sea ice concentration: `total_standard_uncertainty`, the standard error
   of `siconc`
-  ([Product User Guide, section 5.1, page 18](https://admin.climate.esa.int/media/documents/SeaIce_CCI_P1_PUG-HRSIC_D4.2_Issue_3.0.pdf#page=18)).
-  The `status_flag` is not kept.
+  ([Product User Guide, section 5.1, page 18](https://admin.climate.esa.int/media/documents/SeaIce_CCI_P1_PUG-HRSIC_D4.2_Issue_3.0.pdf#page=18)),
+  or `total_standard_error` in the AMSR
+  ([Product User Guide, section 5.1.3, page 19](https://admin.climate.esa.int/media/documents/Sea_Ice_Concentration_Product_User_Guide_1.1.pdf#page=19))
+  and Nimbus-5 ESMR
+  ([Product User Guide, section 4, page 15](https://climate.esa.int/media/documents/SeaIce_CCI_P1_PUG-ESMR_D4.2_Issue_1.1.pdf#page=15))
+  datasets. The `status_flag` is not kept.
+- Sea ice thickness: `sea_ice_thickness_uncertainty`, the standard error of
+  `sithick`, from error propagation
+  ([Product User Guide, section 2.2.1.2, page 12](https://zenodo.org/records/10605998/files/SeaIce_CCI+_P1_PUG-SIT_D4.2_Issue_3.2.pdf#page=12)).
+  The flags and the region code are not kept.
 - Total ozone column: the standard error, standard deviation and number of
   observations of `toz` from the total column product, and `O3e_du_tot`,
   the standard error of `toz` from the nadir profile product.
@@ -239,8 +267,74 @@ dataset = new_data_store("cciodp").open_data(
 )
 ```
 
+Some of these datasets have [known data problems](#known-data-problems).
+
 For the CMIP7 variables that other ESA CCI datasets could provide, see
 [docs/cmip7_variable_mapping.md](docs/cmip7_variable_mapping.md).
+
+## Known data problems
+
+The recipes make the data follow the standards. They do not check its
+quality, and they do not correct the values. While building them, we found the
+problems below, so check them before using these datasets. They were found on
+2026-11-04 with xcube-cci 0.14.2. The list only covers what we looked at, so
+the absence of a dataset does not mean that its data is correct.
+
+### Time steps in the Open Data Portal store
+
+In the Open Data Portal store (`esacci.*`), a time step can contain the data of
+another time step. The files pass the CF and CMIP7 checks anyway, because
+the metadata is correct. Use the same dataset from the zarr or Kerchunk store
+where there is one.
+
+The likely cause is how xcube-cci finds the file of a time step: it takes the
+first file
+[that ends at or after the start of the time step](https://github.com/esa-cci/xcube-cci/blob/v0.14.2/xcube_cci/cciodp.py#L999-L1005),
+so a file that ends exactly when the time step starts is chosen over the file of
+that time step, and a file that starts exactly when the time step ends is used
+for a time step without a file. The time steps are made from the time range of
+the dataset, so they exist whether or not there is a file. We ran this
+selection on the file times in the catalogue of the store, and the results
+agree with all the differences in the data that we compared.
+
+| Datasets (`esacci.`) | Problem | Evidence |
+| --- | --- | --- |
+| `SEAICE.day.L4.SICONC.multi-sensor.multi-platform.AMSR_*` | The data is a day late: each time step has the file of the day before, and the first time steps are copies of the first file. | Compared with the Kerchunk store, whose time steps match the dates in the file names, and the catalogue. |
+| `SST.day.L4.SSTskin.Unspecified.Unspecified.GMPE.2-0.r1` | The data is a day late, and the first two time steps are the same. | Compared with the zarr store, on samples from 1981 and 1992, and the catalogue. |
+| `SEAICE.day.L4.SICONC.multi-sensor.multi-platform.RE_SSMI_*`, `SST.day.L4.SSTdepth.multi-sensor.multi-platform.OSTIA.2-1.sst` | Probably a day late, like the datasets above. | The catalogue, for the first 200 time steps, and repeated fields in the data. There is no other store to compare with. |
+| `SEAICE.day.L3C.SICONC.ESMR-(Nimbus-5).*` | All time steps have the same field, that of the first file, because all files have the same time range in the catalogue. | Compared with the Kerchunk store for the southern hemisphere, and the catalogue for both. |
+| `SEASURFACESALINITY.15-days.L4.SSS.*` | About half of the time steps have the data of the time step before, because the 30-day means overlap. This includes time steps that the recipe keeps. | Compared with the Kerchunk store for v5.5, and the catalogue for all versions. |
+| `AEROSOL.{mon,day}.L3C.AER_PRODUCTS.*` | Many time steps have the same field as the one before. The catalogue predicts another file for 76 of 120 (AATSR) and 75 of 97 (ATSR-2) monthly, and 2315 of 3612 (AATSR) and 2387 of 2944 (ATSR-2) daily time steps. Many ATSR-2 files have an end time in the catalogue that is years after their start. | Repeated fields in the data, and the catalogue. There is no other store to compare with, so it is unclear which time steps are right. |
+| `SEAICE.mon.L3C.SITHICK.*.NH25KMEASE2.*` | September has no data in the northern hemisphere, but its time step is a copy of October. | Compared with the zarr store for Envisat v2.0, and the catalogue for all datasets. |
+| `SNOW.day.L3C.SWE.*` | A day without data is a copy of the next day. In the first years, that is every other day. | Compared with the Kerchunk store for v2.0, and the catalogue for all versions. |
+| `CLOUD.mon.*.AVHRR-PM.3-0.r1`, `OC.day.*`, `SNOW.day.L3C.SCFG.*`, `WATERVAPOUR.day.*.4-2.r1` | The same as above, but only for a few time steps, e.g. 1 of 420 for the cloud dataset and 13 of 9250 for chlorophyll. | The catalogue. The daily datasets other than chlorophyll were only checked for the first 200 time steps. |
+| `OZONE.day.L3S.TC.multi-sensor.multi-platform.MERGED.fv0100.r1` | All days of a month that we sampled have the same field. The files have `1M` in their names and cover a month in the catalogue, so these may be monthly data on a daily time axis. | Repeated fields in the data. There is no other store to compare with, so the cause is unclear. |
+| `OZONE.mon.L3.NP.multi-sensor.multi-platform.MERGED.fv0002.r1` | Only 36 of the 144 monthly time steps have a file in the catalogue. The others have no data. | The catalogue, and samples of the data. There is no other store to compare with. |
+
+We found no problem with the time steps of `CLOUD.mon.*.AVHRR-AM.3-0.r1`,
+`OC.mon.*`, `WATERVAPOUR.mon.*` and the southern hemisphere of
+`SEAICE.mon.L3C.SITHICK.*`. Those of the v3.2 of `WATERVAPOUR.day.*` and of
+`SST.day.L4.SSTdepth.multi-sensor.multi-platform.OSTIA.1-1.r1` look correct in
+the catalogue for the first 200 time steps. The files of
+`OZONE.mon.L3.LP.*` hold several time steps, so the selection above does not
+tell whether they are right, and we did not compare them with another source.
+
+### Values
+
+- Sea ice thickness can be negative, e.g. -0.46 m. The
+  [Product User Guide, table on page 14](https://zenodo.org/records/10605998/files/SeaIce_CCI+_P1_PUG-SIT_D4.2_Issue_3.2.pdf#page=14)
+  uses the fraction of negative thickness as a quality criterion, so these are
+  part of the retrieval. The recipe keeps them.
+- `sea_ice_thickness_uncertainty` reaches 104 m in November 2010 in
+  `SEAICE.mon.L3C.SITHICK.SIRAL.CryoSat-2.NH25KMEASE2.2-0.r1`, where the
+  thickness is below 8 m. It has no standard name in v2.0 and the recipe gives
+  it the one of the later versions, while the
+  [Product User Guide (issue 1.0), section 2.2.1.2, page 13](https://climate.esa.int/media/documents/SeaIce_CCI_P1_PUG_SIT_D4.2_Issue_1.0.pdf#page=13)
+  calls the gridded uncertainties a maximum estimate.
+- `total_standard_error` of the Nimbus-5 datasets goes slightly above 100 %.
+  Part of it, the resampling uncertainty, is the difference between the maximum
+  and the minimum in a window of 3 x 3 pixels, not a standard deviation
+  ([Product User Guide, section 4, page 15](https://climate.esa.int/media/documents/SeaIce_CCI_P1_PUG-ESMR_D4.2_Issue_1.1.pdf#page=15)).
 
 ## Recipes and fixes
 
