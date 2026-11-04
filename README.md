@@ -78,7 +78,7 @@ pass to woodpecker.
   - Open Data Portal store, the same versions:
     `esacci.SEASURFACESALINITY.15-days.L4.SSS.multi-sensor.multi-platform.{,GLOBAL-}MERGED_OI_Monthly_CENTRED_15Day_*.r1`
 - Cloud, monthly AVHRR v3.0, as the CMIP7 variables `clt`, `lwp`, `clivi`,
-  the top of atmosphere fluxes `rlut`, `rlutcs`, `rsut`, `rsutcs` and
+  `clwvi`, the sum of `lwp` and `clivi`, the top of atmosphere fluxes `rlut`, `rlutcs`, `rsut`, `rsutcs` and
   `rsdt`, and the surface fluxes `rlus`, `rsus`, `rsuscs`, `rlds`,
   `rldscs`, `rsds` and `rsdscs`:
   - zarr store, `clt` only:

@@ -321,6 +321,69 @@ recipes:
           mapping:
             clivi: [iwp_allsky]
 
+  # The datasets have no all-sky condensed water path. Table 1-2 on page 10
+  # of the Product User Guide (D3.3, v5.1) says that the liquid and ice water
+  # paths together represent the cloud water path:
+  # https://climate.esa.int/media/documents/Cloud_Product-User-Guide-PUG_v5.1.pdf#page=10
+  # Annex B.2, on pages 68-69, defines both all-sky variables as the grid box
+  # mean of the retrievals of the pixels, including clear-sky pixels, so
+  # they can be added:
+  # https://climate.esa.int/media/documents/Cloud_Product-User-Guide-PUG_v5.1.pdf#page=68
+  - id: esa_cci.cloud_clwvi
+    description: >-
+      Prepare the sum of the all-sky cloud liquid and ice water paths
+      (lwp_allsky and iwp_allsky) of ESA CCI monthly AVHRR cloud datasets,
+      v3.0, as the CMIP7 variable clwvi
+    match:
+      path_patterns: *avhrr_patterns
+    steps:
+      - id: esa_cci.fix_variable_references
+      - id: esa_cci.select_variables
+        options:
+          variables: [lwp_allsky, iwp_allsky]
+      - id: esa_cci.sum_variables
+        options:
+          sums:
+            cwp_allsky: [lwp_allsky, iwp_allsky]
+      - id: esa_cci.remove_packing
+      - id: esa_cci.remove_range_attributes
+      - id: esa_cci.remove_xcube_cci_odp_attributes
+      - *center_time
+      - *fill_time_gaps
+      - *add_bounds
+      - id: esa_cci.set_attributes
+        options:
+          attributes:
+            cwp_allsky:
+              <<: *mean_attributes
+              standard_name: atmosphere_mass_content_of_cloud_condensed_water
+              long_name: Condensed Water Path
+            time: *time_attributes
+            lat: *lat_attributes
+            lon: *lon_attributes
+      - *remove_attributes
+      - id: esa_cci.set_global_attributes
+        options:
+          attributes:
+            <<: *global_attributes
+            variable_id: clwvi
+            branded_variable: clwvi_tavg-u-hxy-u
+      - *set_time_units
+      - id: esa_cci.convert_units
+        options:
+          units:
+            cwp_allsky: kg m-2
+      - id: esa_cci.set_data_types
+        options:
+          data_types:
+            <<: *coordinate_data_types
+            cwp_allsky: float32
+      - *normalize_longitude
+      - id: woodpecker.rename_variables
+        options:
+          mapping:
+            clwvi: [cwp_allsky]
+
   - id: esa_cci.cloud_rlut
     description: >-
       Prepare the outgoing longwave flux at the top of the atmosphere

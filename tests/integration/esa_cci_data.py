@@ -125,6 +125,7 @@ CLOUD_VARIABLES = (
     "clt",
     "lwp",
     "clivi",
+    "clwvi",
     "rlut",
     "rlutcs",
     "rsut",

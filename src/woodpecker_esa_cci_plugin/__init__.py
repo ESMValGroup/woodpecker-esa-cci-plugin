@@ -31,6 +31,7 @@ from .fixes.set_attributes import SetAttributes
 from .fixes.set_data_types import SetDataTypes
 from .fixes.set_global_attributes import SetGlobalAttributes
 from .fixes.set_time_units import SetTimeUnits
+from .fixes.sum_variables import SumVariables
 
 __all__ = [
     "AddBounds",
@@ -58,4 +59,5 @@ __all__ = [
     "SetDataTypes",
     "SetGlobalAttributes",
     "SetTimeUnits",
+    "SumVariables",
 ]
