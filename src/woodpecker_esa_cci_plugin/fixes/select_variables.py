@@ -12,39 +12,12 @@ from woodpecker_esa_cci_plugin.configurable_fix import (
     NonEmptyNames,
     Options,
 )
+from woodpecker_esa_cci_plugin.references import referenced_names
 
 if TYPE_CHECKING:
-    from collections.abc import Hashable, Iterator
+    from collections.abc import Hashable
 
     import xarray as xr
-
-# CF attributes that contain a space separated list of variable names.
-LIST_ATTRIBUTES = (
-    "ancillary_variables",
-    "bounds",
-    "climatology",
-    "coordinates",
-    "geometry",
-    "interior_ring",
-    "node_coordinates",
-    "node_count",
-    "part_node_count",
-)
-# CF attributes that contain a list of "key: variable" pairs.
-KEY_VALUE_ATTRIBUTES = ("cell_measures", "formula_terms", "grid_mapping")
-
-
-def _referenced_names(variable: xr.DataArray) -> Iterator[str]:
-    """Yield the names of the variables that ``variable`` refers to."""
-    for attribute in LIST_ATTRIBUTES:
-        yield from str(variable.attrs.get(attribute, "")).split()
-    for attribute in KEY_VALUE_ATTRIBUTES:
-        words = str(variable.attrs.get(attribute, "")).split()
-        if len(words) == 1:
-            # grid_mapping may be a single variable name.
-            yield words[0]
-        else:
-            yield from (word for word in words if not word.endswith(":"))
 
 
 def _required_names(
@@ -62,7 +35,7 @@ def _required_names(
         variable = dataset[name]
         todo.extend(variable.coords)
         todo.extend(
-            ref for ref in _referenced_names(variable) if ref in dataset
+            ref for ref in referenced_names(variable.attrs) if ref in dataset
         )
     return required
 
@@ -79,8 +52,10 @@ class SelectVariables(ConfigurableFix[SelectVariablesOptions]):
 
     The variables are configured with the ``variables`` option, a list of
     variable names. Variables they refer to through CF attributes, such as
-    ancillary variables and coordinate bounds, are kept as well. Variables
-    that do not exist raise an error.
+    ancillary variables and coordinate bounds, are kept as well, and so are
+    their coordinates. Other coordinates, such as those of histogram bins
+    that only other variables use, are dropped. Variables that do not exist
+    raise an error.
     """
 
     suffix = "select_variables"
@@ -88,11 +63,12 @@ class SelectVariables(ConfigurableFix[SelectVariablesOptions]):
     description = (
         "Drops all data variables except the ones configured with the "
         "variables option and the variables they refer to through CF "
-        "attributes, such as ancillary variables and coordinate bounds."
+        "attributes, such as ancillary variables and coordinate bounds, and "
+        "the coordinates that none of these variables use."
     )
     categories = ["structure"]  # noqa: RUF012
     # Run after fixes that add references to variables, such as
-    # set_attributes adding a grid_mapping.
+    # fix_variable_references adding ancillary variables.
     priority = 60
     dataset = "ESA-CCI"
     labels = [Labels.RISK_VARIABLE_REMOVAL]  # noqa: RUF012
@@ -106,7 +82,7 @@ class SelectVariables(ConfigurableFix[SelectVariablesOptions]):
             msg = f"Unable to select {', '.join(missing)}: not in the dataset"
             raise ValueError(msg)
         required = _required_names(dataset, variables)
-        return [name for name in dataset.data_vars if name not in required]
+        return [name for name in dataset.variables if name not in required]
 
     def matches(self, dataset: xr.Dataset) -> bool:
         """Return whether the fix applies to ``dataset``."""

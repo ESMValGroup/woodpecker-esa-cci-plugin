@@ -48,8 +48,10 @@ Other environments, selected with `-e`:
   the IOOS compliance checker, e.g. `pixi run -e xcube test`. This also runs
   the integration tests in `tests/integration`, which load data from the ESA
   CCI Open Data Portal and need internet access. These include the CF and
-  iris tests of the datasets from all three stores, and check that the
-  recipes match exactly the datasets that the tests use. Run only those with
+  iris tests of the datasets from the Open Data Portal store, which the
+  `online` environment skips, check that the datasets from all three stores
+  load with iris when opened with xcube-cci, and that the recipes match
+  exactly the datasets that the tests use. Run only those with
   `pixi run -e xcube test tests/integration`, or only the unit tests with
   `pixi run test tests/unit`.
 

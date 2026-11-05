@@ -40,9 +40,25 @@ def _units() -> Any:  # noqa: ANN401
     return units
 
 
+def _parse(unit: str) -> tuple[float, Any]:
+    """Return the scaling factor and the pint units of ``unit``.
+
+    pint does not accept units with a scaling factor, e.g. 1E-05 m.
+    """
+    parsed = _units().Quantity(_units().parse_expression(unit))
+    return float(parsed.magnitude), parsed.units
+
+
 def _convert(value: Any, current: str, unit: str) -> Any:  # noqa: ANN401
     """Convert ``value`` from ``current`` to ``unit`` units."""
-    return _units().Quantity(value, current).to(unit).magnitude
+    current_factor, current_units = _parse(current)
+    factor, units = _parse(unit)
+    if current_factor != 1:
+        value = value * current_factor
+    value = _units().Quantity(value, current_units).to(units).magnitude
+    if factor != 1:
+        value = value / factor
+    return value
 
 
 def _convert_variable(
@@ -69,7 +85,7 @@ def _convert_variable(
 def _set_units(dataset: xr.Dataset, var: str, unit: str) -> None:
     """Convert ``var`` and its bounds in ``dataset`` to ``unit`` in place."""
     current = dataset[var].attrs["units"]
-    convert = _units().Unit(current) != _units().Unit(unit)
+    convert = _parse(current) != _parse(unit)
     names: list[Hashable] = [var]
     for key in BOUNDS_ATTRIBUTES:
         name = dataset[var].attrs.get(key)

@@ -43,6 +43,7 @@ def test_recipe_fixes_dataset(tcwv_dataset: xr.Dataset) -> None:
 
     findings = woodpecker.recipe.check(tcwv_dataset, recipe)
     assert set(findings.fix_ids) == {
+        "esa_cci.fix_variable_references",
         "esa_cci.grid_mapping_from_wkt",
         "esa_cci.select_variables",
         "esa_cci.set_attributes",
@@ -162,3 +163,44 @@ def test_recipe_fixes_dataset(tcwv_dataset: xr.Dataset) -> None:
             }
         else:
             assert not set(PACKING_KEYS) & set(variable.encoding)
+
+
+def test_cloud_clwvi_recipe_adds_the_water_paths() -> None:
+    shape = (2, 2, 2)
+    dims = ("time", "lat", "lon")
+    dataset = xr.Dataset(
+        {
+            "lwp_allsky": (dims, np.full(shape, 100.0), {"units": "g/m2"}),
+            "iwp_allsky": (dims, np.full(shape, 20.0), {"units": "g/m2"}),
+            "lwp_std": (dims, np.ones(shape), {"units": "g/m2"}),
+        },
+        coords={
+            "time": np.array(["2000-01-01", "2000-02-01"], dtype="M8[ns]"),
+            "lat": [-0.25, 0.25],
+            "lon": [0.25, 0.75],
+        },
+    ).chunk({"time": 1})
+
+    woodpecker.recipe.apply(
+        dataset,
+        woodpecker.recipe.get("esa_cci.cloud_clwvi"),
+        dry_run=False,
+    )
+
+    assert set(dataset.data_vars) == {
+        "clwvi",
+        "lat_bnds",
+        "lon_bnds",
+        "time_bnds",
+    }
+    clwvi = dataset["clwvi"]
+    assert clwvi.chunks is not None
+    assert clwvi.dtype == np.float32
+    np.testing.assert_allclose(clwvi, 0.12)
+    assert clwvi.attrs == {
+        "units": "kg m-2",
+        "standard_name": "atmosphere_mass_content_of_cloud_condensed_water",
+        "long_name": "Condensed Water Path",
+        "cell_methods": "area: time: mean",
+    }
+    assert dataset.attrs["variable_id"] == "clwvi"

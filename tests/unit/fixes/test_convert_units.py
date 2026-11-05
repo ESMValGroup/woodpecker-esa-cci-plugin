@@ -37,7 +37,14 @@ def test_variable_without_units_raises(tcwv_dataset: xr.Dataset) -> None:
 
 @pytest.mark.parametrize(
     ("units", "factor"),
-    [("kg/m2", 1.0), ("g m-2", 1e-3), ("kg cm-2", 1e4)],
+    # Units with a scaling factor, like the total ozone column in Dobson
+    # units, given as 1E-05 m.
+    [
+        ("kg/m2", 1.0),
+        ("g m-2", 1e-3),
+        ("kg cm-2", 1e4),
+        ("1E-03 kg m-2", 1e-3),
+    ],
 )
 def test_units_are_converted(
     tcwv_dataset: xr.Dataset,
@@ -73,6 +80,23 @@ def test_units_are_converted(
     assert tcwv.encoding == {"dtype": "float32"}
     np.testing.assert_allclose(tcwv, original * factor, rtol=1e-6)
     assert not woodpecker.check(tcwv_dataset, fixes=FIX_ID, options=OPTIONS)
+
+
+def test_units_are_converted_to_units_with_a_scaling_factor(
+    tcwv_dataset: xr.Dataset,
+) -> None:
+    tcwv_dataset["tcwv"].attrs["units"] = "kg m-2"
+    original = tcwv_dataset["tcwv"].copy()
+    options = {FIX_ID: {"units": {"tcwv": "1E-03 kg m-2"}}}
+
+    woodpecker.apply(
+        tcwv_dataset, fixes=FIX_ID, dry_run=False, options=options
+    )
+
+    tcwv = tcwv_dataset["tcwv"]
+    assert tcwv.attrs["units"] == "1E-03 kg m-2"
+    np.testing.assert_allclose(tcwv, original * 1e3, rtol=1e-6)
+    assert not woodpecker.check(tcwv_dataset, fixes=FIX_ID, options=options)
 
 
 def test_incompatible_units_raise(tcwv_dataset: xr.Dataset) -> None:

@@ -6,6 +6,7 @@ scoped and parametrized by the case, so pytest runs all checks of one case
 before opening the next, and only one dataset is in memory at a time.
 """
 
+import importlib.util
 import shutil
 import subprocess
 import warnings
@@ -20,6 +21,7 @@ from .esa_cci_data import (
     CASES,
     TIME_STEPS,
     Case,
+    clear_dataset_cache,
     open_fixed_dataset,
 )
 
@@ -47,10 +49,22 @@ VOCABULARIES = ("cmip7@2.4.1", "universe@3.2.7")
 TIME_RANGE_FORMATS = {"mon": "%Y%m", "day": "%Y%m%d"}
 
 
-@pytest.fixture(scope="module", params=CASES, ids=[c.data_id for c in CASES])
+@pytest.fixture(scope="module", params=CASES, ids=[c.id for c in CASES])
 def case(request: pytest.FixtureRequest) -> Case:
     result: Case = request.param
+    if result.store != "cciodp" and importlib.util.find_spec("xcube"):
+        pytest.skip(
+            "The online environment tests the zarr and Kerchunk datasets, "
+            "with all checkers"
+        )
     return result
+
+
+@pytest.fixture(scope="module", autouse=True)
+def _clear_dataset_cache() -> Iterator[None]:
+    """Free the cached dataset after the last case, for the other tests."""
+    yield
+    clear_dataset_cache()
 
 
 @pytest.fixture(scope="module")
@@ -206,8 +220,9 @@ def test_uncertainties_have_the_units_of_the_variable(
     fixed_dataset: xr.Dataset,
 ) -> None:
     variable = fixed_dataset[case.variable_id]
-    names = variable.attrs["ancillary_variables"].split()
-    assert names
+    names = variable.attrs.get("ancillary_variables", "").split()
+    if not names:
+        pytest.skip(f"{case.variable_id} has no uncertainties")
     for name in names:
         attrs = fixed_dataset[name].attrs
         # Counts, such as the number of observations, are dimensionless.

@@ -26,23 +26,27 @@ class NormalizeLongitudeOptions(Options):
 class NormalizeLongitude(ConfigurableFix[NormalizeLongitudeOptions]):
     """Wrap a longitude coordinate to the range [0, 360).
 
-    The longitude dimension coordinate is configured with the ``coordinate``
-    option. Its values and bounds are wrapped to [0, 360) and all variables
-    along it are reordered, so the coordinate stays increasing. The range
+    The longitude coordinate is configured with the ``coordinate`` option.
+    Its values and bounds are wrapped to [0, 360). For a dimension
+    coordinate, all variables along it are reordered, so the coordinate
+    stays increasing. A 2-D longitude of a projected grid is wrapped without
+    reordering. The bounds of each cell are shifted by the offset of its
+    center, so cells that cross 0 or 360 keep their width. The range
     attributes of the coordinate and bounds, such as ``valid_range``, are
     removed, because they no longer match. Unlike the core woodpecker
     ``normalize_longitude_convention`` fix, this keeps the coordinate
-    monotonic. A coordinate that does not exist or is not a dimension
-    coordinate raises an error.
+    monotonic. A coordinate that does not exist, or that is 1-D but not a
+    dimension coordinate, raises an error.
     """
 
     suffix = "normalize_longitude"
     name = "Normalize longitude"
     description = (
-        "Wraps the longitude dimension coordinate configured with the "
-        "coordinate option, and its bounds, to [0, 360) and reorders the data "
-        "so the coordinate stays increasing. Their range attributes, such as "
-        "valid_range, are removed. Unlike the core woodpecker "
+        "Wraps the longitude coordinate configured with the coordinate "
+        "option, and its bounds, to [0, 360). A dimension coordinate is "
+        "reordered with the data so it stays increasing, and a 2-D longitude "
+        "of a projected grid is wrapped in place. Their range attributes, "
+        "such as valid_range, are removed. Unlike the core woodpecker "
         "normalize_longitude_convention fix, the result is monotonic."
     )
     categories = ["coordinates"]  # noqa: RUF012
@@ -58,9 +62,11 @@ class NormalizeLongitude(ConfigurableFix[NormalizeLongitudeOptions]):
         if name not in dataset.variables:
             msg = f"Unable to normalize {name}: it does not exist"
             raise ValueError(msg)
-        if dataset[name].dims != (name,):
+        dims = dataset[name].dims
+        if len(dims) != 2 and dims != (name,):  # noqa: PLR2004
             msg = (
-                f"Unable to normalize {name}: it is not a dimension coordinate"
+                f"Unable to normalize {name}: it is not a dimension "
+                "coordinate or a 2-D coordinate"
             )
             raise ValueError(msg)
         return name
@@ -93,8 +99,30 @@ class NormalizeLongitude(ConfigurableFix[NormalizeLongitudeOptions]):
         if (name := self._wrong(dataset)) is None:
             return False
         if not dry_run:
-            _wrap(dataset, name)
+            if dataset[name].ndim == 1:
+                _wrap(dataset, name)
+            else:
+                _wrap_2d(dataset, name)
         return True
+
+
+def _wrap_2d(dataset: xr.Dataset, name: str) -> None:
+    """Wrap 2-D longitude ``name`` in ``dataset`` to [0, 360) in place."""
+    coordinate = dataset[name].variable
+    offset = coordinate.data % 360 - coordinate.data
+    data = (coordinate.data + offset).astype(coordinate.dtype)
+    coordinate = coordinate.copy(data=data)
+    remove_range_attributes(coordinate)
+    dataset.coords[name] = coordinate
+    bounds = coordinate.attrs.get("bounds")
+    if bounds in dataset.variables:
+        variable = dataset[bounds].variable
+        # The vertices are the last dimension of the bounds.
+        shift = offset[..., np.newaxis]
+        data = (variable.data + shift).astype(variable.dtype)
+        variable = variable.copy(data=data)
+        remove_range_attributes(variable)
+        dataset[bounds] = variable
 
 
 def _wrap(dataset: xr.Dataset, name: str) -> None:
