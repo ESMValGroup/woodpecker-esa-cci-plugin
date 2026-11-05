@@ -67,12 +67,7 @@ recipes:
       - &add_bounds
         id: esa_cci.add_bounds
         options:
-          coordinates: [xc, yc]
-      - &add_geographic_bounds
-        id: esa_cci.add_geographic_bounds
-        options:
-          latitude: lat
-          longitude: lon
+          coordinates: [xc, yc, lat, lon]
           grid_mapping: Lambert_Azimuthal_Grid
       - id: esa_cci.set_attributes
         options:
@@ -192,7 +187,6 @@ recipes:
           frequency: day
       - *convert_units
       - *add_bounds
-      - *add_geographic_bounds
       - id: esa_cci.set_attributes
         options:
           attributes:
@@ -251,7 +245,6 @@ recipes:
       - *fill_daily_time_gaps
       - *convert_units
       - *add_bounds
-      - *add_geographic_bounds
       # esa_cci.fix_variable_references removed the references to the grid
       # mapping, which did not exist yet.
       - id: esa_cci.set_attributes
@@ -312,7 +305,6 @@ recipes:
           frequency: mon
       - *convert_units
       - *add_bounds
-      - *add_geographic_bounds
       - id: esa_cci.set_attributes
         options:
           attributes:

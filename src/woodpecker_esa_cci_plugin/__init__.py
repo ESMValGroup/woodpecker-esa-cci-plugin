@@ -5,7 +5,6 @@ imports it automatically through the ``woodpecker.plugins`` entry point.
 """
 
 from .fixes.add_bounds import AddBounds
-from .fixes.add_geographic_bounds import AddGeographicBounds
 from .fixes.add_scalar_coordinate import AddScalarCoordinate
 from .fixes.apply_valid_range import ApplyValidRange
 from .fixes.center_time import CenterTime
@@ -35,7 +34,6 @@ from .fixes.sum_variables import SumVariables
 
 __all__ = [
     "AddBounds",
-    "AddGeographicBounds",
     "AddScalarCoordinate",
     "ApplyValidRange",
     "CenterTime",
