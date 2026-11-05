@@ -82,6 +82,23 @@ def test_units_are_converted(
     assert not woodpecker.check(tcwv_dataset, fixes=FIX_ID, options=OPTIONS)
 
 
+def test_units_are_converted_to_units_with_a_scaling_factor(
+    tcwv_dataset: xr.Dataset,
+) -> None:
+    tcwv_dataset["tcwv"].attrs["units"] = "kg m-2"
+    original = tcwv_dataset["tcwv"].copy()
+    options = {FIX_ID: {"units": {"tcwv": "1E-03 kg m-2"}}}
+
+    woodpecker.apply(
+        tcwv_dataset, fixes=FIX_ID, dry_run=False, options=options
+    )
+
+    tcwv = tcwv_dataset["tcwv"]
+    assert tcwv.attrs["units"] == "1E-03 kg m-2"
+    np.testing.assert_allclose(tcwv, original * 1e3, rtol=1e-6)
+    assert not woodpecker.check(tcwv_dataset, fixes=FIX_ID, options=options)
+
+
 def test_incompatible_units_raise(tcwv_dataset: xr.Dataset) -> None:
     tcwv_dataset["tcwv"].attrs["units"] = "K"
 
